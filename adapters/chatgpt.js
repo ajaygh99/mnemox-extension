@@ -1,4 +1,4 @@
-// Mnemox — ChatGPT Platform Adapter (stub)
+// Mnemox - ChatGPT Platform Adapter (stub)
 // Implements the PlatformAdapter interface.
 // Real parsing logic added in Day 3-4 (token counter phase).
 
@@ -15,7 +15,7 @@ const ChatGPTAdapter = {
   },
 
   parseChunk(line) {
-    // Stub — will parse SSE token deltas in Day 3-4
+    // Stub - will parse SSE token deltas in Day 3-4
     return null;
   },
 

@@ -1,4 +1,4 @@
-// Mnemox — Gemini Platform Adapter (stub)
+// Mnemox - Gemini Platform Adapter (stub)
 
 const GeminiAdapter = {
   name: 'gemini',

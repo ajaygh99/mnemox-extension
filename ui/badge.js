@@ -1,6 +1,6 @@
-// Mnemox — Score Badge UI
-// Injects a floating badge into any page showing the prompt score.
-// Zero dependencies. Scoped CSS — cannot affect the host page styles.
+// Mnemox - Score Badge UI
+// Floating badge showing prompt score + token count.
+// Click opens the Coaching Panel.
 
 var MnemoxBadge = (function () {
   var BADGE_ID = 'mnemox-score-badge';
@@ -19,22 +19,12 @@ var MnemoxBadge = (function () {
     var badge = document.createElement('div');
     badge.id = BADGE_ID;
     badge.setAttribute('style', [
-      'position:fixed',
-      'bottom:20px',
-      'right:20px',
-      'z-index:2147483647',
-      'font-family:Arial,sans-serif',
-      'font-size:13px',
-      'background:#1A2B4A',
-      'color:#FFFFFF',
-      'border-radius:10px',
-      'padding:10px 14px',
-      'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
-      'min-width:140px',
-      'cursor:pointer',
-      'transition:opacity 0.3s',
-      'opacity:0.95',
-      'pointer-events:auto',
+      'position:fixed', 'bottom:20px', 'right:20px', 'z-index:2147483647',
+      'font-family:Arial,sans-serif', 'font-size:13px', 'background:#1A2B4A',
+      'color:#FFFFFF', 'border-radius:10px', 'padding:10px 14px',
+      'box-shadow:0 4px 16px rgba(0,0,0,0.3)', 'min-width:140px',
+      'cursor:pointer', 'transition:opacity 0.3s', 'opacity:0.95',
+      'pointer-events:auto'
     ].join(';'));
 
     badge.innerHTML = [
@@ -46,20 +36,21 @@ var MnemoxBadge = (function () {
       '    <div id="mnemox-label" style="font-size:10px;opacity:0.8;"></div>',
       '  </div>',
       '</div>',
-      '<div id="mnemox-weak" style="font-size:10px;margin-top:6px;opacity:0.75;line-height:1.4;"></div>',
+      '<div id="mnemox-tokens" style="font-size:10px;margin-top:4px;opacity:0.7;"></div>',
+      '<div style="font-size:9px;margin-top:5px;opacity:0.5;">Click for details</div>'
     ].join('');
 
-    // Minimize on click
     badge.addEventListener('click', function () {
-      var weak = document.getElementById('mnemox-weak');
-      var line = document.getElementById('mnemox-score-line');
-      if (weak) weak.style.display = weak.style.display === 'none' ? 'block' : 'none';
+      if (typeof MnemoxCoach !== 'undefined') {
+        MnemoxCoach.toggle(window._mnemoxLastResult);
+      }
     });
 
     document.body.appendChild(badge);
   }
 
   function update(result) {
+    window._mnemoxLastResult = result;
     inject();
     if (!result || result.empty) return;
 
@@ -69,17 +60,21 @@ var MnemoxBadge = (function () {
 
     badge.style.background = color.bg;
 
-    var numEl   = document.getElementById('mnemox-score-num');
-    var gradeEl = document.getElementById('mnemox-grade');
-    var labelEl = document.getElementById('mnemox-label');
-    var weakEl  = document.getElementById('mnemox-weak');
+    var numEl    = document.getElementById('mnemox-score-num');
+    var gradeEl  = document.getElementById('mnemox-grade');
+    var labelEl  = document.getElementById('mnemox-label');
+    var tokensEl = document.getElementById('mnemox-tokens');
 
     if (numEl)   numEl.textContent   = result.score;
     if (gradeEl) gradeEl.textContent = 'Grade ' + result.grade;
     if (labelEl) labelEl.textContent = color.label;
-    if (weakEl)  weakEl.textContent  = result.weak && result.weak.length > 0
-      ? 'Improve: ' + result.weak.slice(0, 3).join(', ')
-      : 'All rules passing';
+    if (tokensEl && result.tokens != null) {
+      tokensEl.textContent = '~' + result.tokens + ' tokens';
+    }
+
+    if (typeof MnemoxCoach !== 'undefined') {
+      MnemoxCoach.update(result);
+    }
   }
 
   function hide() {

@@ -3,16 +3,68 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; width: 200px; padding: 16px; margin: 0; }
-    h3   { margin: 0 0 6px; color: #1A2B4A; font-size: 15px; }
-    p    { margin: 0; font-size: 12px; color: #555; }
-    .tag { display: inline-block; margin-top: 8px; font-size: 11px;
-           background: #D5F5E3; color: #1A5E35; padding: 2px 8px; border-radius: 4px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; width: 240px; background: #0F1C30; color: #FFFFFF; padding: 16px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .logo { font-size: 15px; font-weight: bold; letter-spacing: 1px; color: #5DADE2; }
+    .version { font-size: 10px; color: #555; }
+    .card { background: #1A2B4A; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+    .card-label { font-size: 10px; color: #888; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .score-row { display: flex; align-items: center; gap: 10px; }
+    .score-num { font-size: 32px; font-weight: bold; color: #5DADE2; }
+    .grade { font-weight: bold; font-size: 14px; }
+    .sublabel { color: #AAA; margin-top: 2px; font-size: 11px; }
+    .tokens-num { font-size: 24px; font-weight: bold; color: #58D68D; }
+    .weak-list { font-size: 10px; color: #F0B27A; margin-top: 6px; line-height: 1.5; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 11px; margin-top: 6px; color: #AAA; }
+    .stat-val { color: #FFFFFF; font-weight: bold; }
+    .footer { font-size: 10px; color: #555; text-align: center; margin-top: 8px; }
+    .badge-local { display: inline-block; font-size: 10px; background: #1A5E35; color: #D5F5E3; padding: 2px 7px; border-radius: 4px; }
+    #status { font-size: 11px; color: #888; text-align: center; padding: 8px 0; }
   </style>
 </head>
 <body>
-  <h3>Mnemox</h3>
-  <p>v0.1.0 — scaffold</p>
-  <span class="tag">Independent · Local</span>
+  <div class="header">
+    <span class="logo">MNEMOX</span>
+    <span class="version">v0.1.0</span>
+  </div>
+
+  <div id="status">Waiting for input on any tab...</div>
+
+  <div id="score-card" class="card" style="display:none">
+    <div class="card-label">Prompt Score</div>
+    <div class="score-row">
+      <span id="pop-score" class="score-num">--</span>
+      <div>
+        <div id="pop-grade" class="grade"></div>
+        <div id="pop-label" class="sublabel"></div>
+      </div>
+    </div>
+    <div id="pop-weak" class="weak-list"></div>
+  </div>
+
+  <div id="token-card" class="card" style="display:none">
+    <div class="card-label">Token Estimate</div>
+    <span id="pop-tokens" class="tokens-num">0</span>
+    <span style="font-size:11px;color:#AAA;margin-left:4px;">tokens</span>
+  </div>
+
+  <div id="session-card" class="card" style="display:none">
+    <div class="card-label">Session</div>
+    <div class="stat-row">
+      <span>Prompts scored</span>
+      <span id="pop-count" class="stat-val">0</span>
+    </div>
+    <div class="stat-row">
+      <span>Last site</span>
+      <span id="pop-url" class="stat-val" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">--</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="badge-local">100% Local - No API</span>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

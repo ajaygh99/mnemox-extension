@@ -1,4 +1,4 @@
-// Mnemox — Claude.ai Platform Adapter (stub)
+// Mnemox - Claude.ai Platform Adapter (stub)
 
 const ClaudeAdapter = {
   name: 'claude',

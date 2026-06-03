@@ -1,4 +1,4 @@
-// Mnemox — Rule-Based Scoring Engine
+// Mnemox - Rule-Based Scoring Engine
 // 100% local. Zero API calls. Runs in <5ms.
 // 8 rules, each scores 0-12 points = max 96 + 4 bonus = 100.
 
@@ -120,7 +120,7 @@ const RULES = [
       const exampleSignals = /\b(for example|e\.g\.|such as|like this|here is an example|sample|instance)\b/i;
       const hasCode = /`[^`]+`/.test(text);
       if (exampleSignals.test(text) || hasCode) {
-        return { score: 4, message: 'Great — examples help guide the output.' };
+        return { score: 4, message: 'Great - examples help guide the output.' };
       }
       return { score: 0, message: 'No examples (optional but recommended for complex tasks).' };
     }
@@ -128,7 +128,7 @@ const RULES = [
 
 ];
 
-// ── Main scoring function ─────────────────────────────────────────────────────
+//  Main scoring function
 
 // -- Main scoring function --
 function scorePrompt(text) {

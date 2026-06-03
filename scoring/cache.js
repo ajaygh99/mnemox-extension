@@ -1,4 +1,4 @@
-// Mnemox — Prompt Hash Cache
+// Mnemox - Prompt Hash Cache
 // SHA-256 hash -> score result. Max 100 entries (LRU eviction).
 // Zero API calls. Cache hits return in <1ms.
 

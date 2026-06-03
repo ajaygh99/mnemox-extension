@@ -1,6 +1,6 @@
-// Mnemox — Background Service Worker
+// Mnemox - Background Service Worker
 // 100% local. No external API. No AI platform dependency.
-// featureFlags logic is inlined directly below — no imports needed.
+// featureFlags logic is inlined directly below - no imports needed.
 
 const FLAG_DEFAULTS = {
   TOKEN_COUNTER:   false,
@@ -9,43 +9,48 @@ const FLAG_DEFAULTS = {
 };
 
 function getFlag(key, callback) {
-  chrome.storage.local.get(key, result => {
+  chrome.storage.local.get(key, function(result) {
     callback(key in result ? result[key] : FLAG_DEFAULTS[key]);
   });
 }
 
 function getAllFlags(callback) {
-  chrome.storage.local.get(Object.keys(FLAG_DEFAULTS), result => {
-    callback({ ...FLAG_DEFAULTS, ...result });
+  chrome.storage.local.get(Object.keys(FLAG_DEFAULTS), function(result) {
+    var merged = Object.assign({}, FLAG_DEFAULTS, result);
+    callback(merged);
   });
 }
 
-// Message router
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   switch (message.type) {
 
     case 'TOKEN_COUNT':
-      getFlag('TOKEN_COUNTER', enabled => {
-        sendResponse({ ok: true, enabled });
+      getFlag('TOKEN_COUNTER', function(enabled) {
+        sendResponse({ ok: true, enabled: enabled });
       });
       return true;
 
     case 'ANALYZE_PROMPT':
-      getFlag('PROMPT_COACHING', enabled => {
-        sendResponse({ ok: true, enabled });
+      getFlag('PROMPT_COACHING', function(enabled) {
+        sendResponse({ ok: true, enabled: enabled });
       });
       return true;
 
     case 'ENTITLEMENT_CHECK':
-      getFlag('PAYWALL', enabled => {
+      getFlag('PAYWALL', function(enabled) {
         sendResponse({ ok: true, tier: 'free', paywallEnabled: enabled });
       });
       return true;
 
     case 'FLAG_TEST':
-      getAllFlags(flags => {
-        sendResponse({ ok: true, flags });
+      getAllFlags(function(flags) {
+        sendResponse({ ok: true, flags: flags });
       });
+      return true;
+
+    case 'HEALTH_REPORT':
+      console.log('[Mnemox] health report:', JSON.stringify(message.result));
+      sendResponse({ ok: true });
       return true;
 
     default:
@@ -55,9 +60,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Log all flag states on install
-chrome.runtime.onInstalled.addListener(() => {
-  getAllFlags(flags => {
+chrome.runtime.onInstalled.addListener(function() {
+  getAllFlags(function(flags) {
     console.log('[Mnemox] installed. Flags:', JSON.stringify(flags));
   });
 });

@@ -22,14 +22,21 @@ function injectScript(file) {
 }
 
 injectScript('scoring/rules.js');
+injectScript('scoring/tokenizer.js');
+injectScript('scoring/suggester.js');
+injectScript('ui/coach.js');
 injectScript('ui/badge.js');
 injectScript('ui/pageWorld.js');
+injectScript('adapters/chatgpt.js');
+injectScript('adapters/claude.js');
+injectScript('adapters/gemini.js');
+injectScript('adapters/registry.js');
 
 var wired = false;
 
 function wireObserver() {
   if (wired) return;
-  var SELECTORS = ['#prompt-textarea', '[contenteditable="true"]', 'textarea'];
+  var SELECTORS = ['#prompt-textarea', '[contenteditable="true"]', 'textarea', 'input[type="text"]', 'input:not([type])', 'input[type="search"]'];
   var target = null;
   for (var i = 0; i < SELECTORS.length; i++) {
     target = document.querySelector(SELECTORS[i]);
@@ -55,5 +62,34 @@ function wireObserver() {
   }
 }
 
-window.addEventListener('load', function () { setTimeout(wireObserver, 800); });
+// Save last result to storage so popup can read it
+window.addEventListener('message', function (event) {
+  if (event.source !== window) return;
+  if (!event.data) return;
+
+  if (event.data.type === 'MNEMOX_RESULT') {
+    chrome.storage.local.get(['sessionCount'], function(data) {
+      var count = (data.sessionCount || 0) + 1;
+      chrome.storage.local.set({
+        lastResult: event.data.result,
+        lastUrl: window.location.hostname,
+        sessionCount: count
+      });
+    });
+  }
+
+  if (event.data.type === 'MNEMOX_HEALTHCHECK_RESULT') {
+    chrome.runtime.sendMessage({ type: 'HEALTH_REPORT', result: event.data.result });
+  }
+});
+
+// Adapter health-check on page load
+function runHealthCheck() {
+  window.postMessage({ type: 'MNEMOX_HEALTHCHECK' }, '*');
+}
+
+window.addEventListener('load', function () {
+  setTimeout(wireObserver, 800);
+  setTimeout(runHealthCheck, 1500);
+});
 setTimeout(wireObserver, 1200);

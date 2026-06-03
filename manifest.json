@@ -3,35 +3,51 @@
   "name": "Mnemox",
   "version": "0.1.0",
   "description": "Real-time prompt scorer and token counter. Works on any site. Zero external API dependencies.",
-
-  "permissions": ["storage", "scripting", "activeTab"],
-
-  "host_permissions": ["<all_urls>"],
-
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   },
-
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "web_accessible_resources": [
     {
-      "resources": ["scoring/rules.js", "ui/badge.js", "ui/pageWorld.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "scoring/rules.js",
+        "scoring/tokenizer.js",
+        "ui/badge.js",
+        "ui/pageWorld.js",
+        "adapters/chatgpt.js",
+        "adapters/claude.js",
+        "adapters/gemini.js",
+        "adapters/registry.js",
+        "ui/coach.js",
+        "scoring/suggester.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
-
   "action": {
     "default_popup": "popup.html",
     "default_title": "Mnemox"
   },
-
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
