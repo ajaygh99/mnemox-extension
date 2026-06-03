@@ -177,3 +177,6 @@ if (failed > 0) {
   console.log('  git push origin main --tags\n');
   process.exit(0);
 }
+
+// ── STEP 3.1 — Badge UI ───────────────────────────────────────────────────────
+console.log('\n[ Step 3.1 ] Score Badge UI');
