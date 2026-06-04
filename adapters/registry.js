@@ -4,9 +4,12 @@
 
 function getAdapterForPage() {
   var adapters = [];
-  if (typeof ChatGPTAdapter !== 'undefined') adapters.push(ChatGPTAdapter);
-  if (typeof ClaudeAdapter  !== 'undefined') adapters.push(ClaudeAdapter);
-  if (typeof GeminiAdapter  !== 'undefined') adapters.push(GeminiAdapter);
+  if (typeof ChatGPTAdapter    !== 'undefined') adapters.push(ChatGPTAdapter);
+  if (typeof ClaudeAdapter     !== 'undefined') adapters.push(ClaudeAdapter);
+  if (typeof GeminiAdapter     !== 'undefined') adapters.push(GeminiAdapter);
+  if (typeof CopilotAdapter    !== 'undefined') adapters.push(CopilotAdapter);
+  if (typeof PerplexityAdapter !== 'undefined') adapters.push(PerplexityAdapter);
+  if (typeof GrokAdapter       !== 'undefined') adapters.push(GrokAdapter);
 
   var url = window.location.href;
   var adapter = null;

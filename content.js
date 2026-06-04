@@ -30,6 +30,9 @@ injectScript('ui/pageWorld.js');
 injectScript('adapters/chatgpt.js');
 injectScript('adapters/claude.js');
 injectScript('adapters/gemini.js');
+injectScript('adapters/copilot.js');
+injectScript('adapters/perplexity.js');
+injectScript('adapters/grok.js');
 injectScript('adapters/registry.js');
 
 var wired = false;

@@ -50,7 +50,7 @@ check('manifest.json exists',              () => fileExists('manifest.json'));
 check('manifest.json is valid JSON',       () => { parseJSON('manifest.json'); });
 check('manifest_version is 3',            () => { const m = parseJSON('manifest.json'); return m.manifest_version === 3 || `got ${m.manifest_version}`; });
 check('no update_url (Edge safe)',         () => { const m = parseJSON('manifest.json'); return !('update_url' in m) || 'update_url found'; });
-check('host_permissions: <all_urls>',      () => { const m = parseJSON('manifest.json'); return (m.host_permissions||[]).includes('<all_urls>') || 'missing'; });
+check('host_permissions: specific AI domains', () => { const m = parseJSON('manifest.json'); const hp = m.host_permissions||[]; return hp.includes('https://chatgpt.com/*') && hp.includes('https://claude.ai/*') && hp.includes('https://gemini.google.com/*') || 'missing AI domains'; });
 check('background.js exists',             () => fileExists('background.js'));
 check('content.js exists',                () => fileExists('content.js'));
 check('popup.html exists',                () => fileExists('popup.html'));
@@ -358,8 +358,7 @@ if (failed > 0) {
 } else {
   console.log('All checks green. Run the git tag command:\n');
   console.log('  git add -A');
-  console.log('  git commit -m "step 4.2: improvement suggestions + copy improved prompt"');
-  console.log('  git tag step4.2-verified');
-  console.log('  git push origin main --tags\n');
-  process.exit(0);
+  console.log('  git commit -m "v1.1.0: new adapters, UUID, feature flags, scoped permissions"');
+  console.log('  git tag v1.1.0');
+  console.log('  git push && git push --tags');
 }

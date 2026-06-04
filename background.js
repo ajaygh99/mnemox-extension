@@ -6,6 +6,8 @@ const FLAG_DEFAULTS = {
   TOKEN_COUNTER:   false,
   PROMPT_COACHING: false,
   PAYWALL:         false,
+  TRUST_SCORING:   false,
+  TRACE_LOGGING:   false,
 };
 
 function getFlag(key, callback) {
@@ -48,6 +50,12 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       });
       return true;
 
+    case 'GET_UUID':
+      chrome.storage.local.get(['mnemox_uuid'], function(data) {
+        sendResponse({ ok: true, uuid: data.mnemox_uuid || null });
+      });
+      return true;
+
     case 'HEALTH_REPORT':
       console.log('[Mnemox] health report:', JSON.stringify(message.result));
       sendResponse({ ok: true });
@@ -60,7 +68,24 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   return true;
 });
 
+// Generate anonymous UUID on first install — used to link free users to backend on Pro upgrade.
+// UUID is never sent anywhere until the user explicitly logs in.
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    var v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 chrome.runtime.onInstalled.addListener(function() {
+  chrome.storage.local.get(['mnemox_uuid'], function(data) {
+    if (!data.mnemox_uuid) {
+      var uuid = generateUUID();
+      chrome.storage.local.set({ mnemox_uuid: uuid });
+      console.log('[Mnemox] assigned UUID:', uuid);
+    }
+  });
   getAllFlags(function(flags) {
     console.log('[Mnemox] installed. Flags:', JSON.stringify(flags));
   });
