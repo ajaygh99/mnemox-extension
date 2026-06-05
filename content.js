@@ -34,6 +34,7 @@ injectScript('adapters/copilot.js');
 injectScript('adapters/perplexity.js');
 injectScript('adapters/grok.js');
 injectScript('adapters/registry.js');
+injectScript('response-reader.js');
 
 var wired = false;
 
@@ -81,6 +82,9 @@ window.addEventListener('message', function (event) {
     });
   }
 
+  if (event.data.type === 'MNEMOX_RESPONSE') {
+    chrome.runtime.sendMessage({ type: 'RESPONSE_CAPTURED', payload: event.data.payload });
+  }
   if (event.data.type === 'MNEMOX_HEALTHCHECK_RESULT') {
     chrome.runtime.sendMessage({ type: 'HEALTH_REPORT', result: event.data.result });
   }
@@ -96,3 +100,5 @@ window.addEventListener('load', function () {
   setTimeout(runHealthCheck, 1500);
 });
 setTimeout(wireObserver, 1200);
+
+

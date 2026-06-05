@@ -1,79 +1,82 @@
 {
-  "manifest_version": 3,
-  "name": "Mnemox",
-  "version": "1.1.0",
-  "description": "Real-time prompt scorer and token counter. Works on ChatGPT, Claude, Gemini, Copilot, Perplexity and more. Instant coaching panel with rule breakdown and improved prompt suggestions. Zero external API dependencies.",
-  "permissions": [
-    "storage",
-    "scripting",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "https://chatgpt.com/*",
-    "https://chat.openai.com/*",
-    "https://claude.ai/*",
-    "https://gemini.google.com/*",
-    "https://copilot.microsoft.com/*",
-    "https://www.perplexity.ai/*",
-    "https://x.com/*",
-    "https://grok.com/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://claude.ai/*",
-        "https://gemini.google.com/*",
-        "https://copilot.microsoft.com/*",
-        "https://www.perplexity.ai/*",
-        "https://x.com/*",
-        "https://grok.com/*"
-      ],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "scoring/rules.js",
-        "scoring/tokenizer.js",
-        "ui/badge.js",
-        "ui/pageWorld.js",
-        "adapters/chatgpt.js",
-        "adapters/claude.js",
-        "adapters/gemini.js",
-        "adapters/copilot.js",
-        "adapters/perplexity.js",
-        "adapters/grok.js",
-        "adapters/registry.js",
-        "ui/coach.js",
-        "scoring/suggester.js"
-      ],
-      "matches": [
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*",
-        "https://claude.ai/*",
-        "https://gemini.google.com/*",
-        "https://copilot.microsoft.com/*",
-        "https://www.perplexity.ai/*",
-        "https://x.com/*",
-        "https://grok.com/*"
-      ]
-    }
-  ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_title": "Mnemox"
-  },
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  },
-  "homepage_url": "https://mnemoxpro.com"
+    "manifest_version":  3,
+    "name":  "Mnemox",
+    "version":  "1.1.0",
+    "description":  "Real-time prompt scorer and token counter. Works on ChatGPT, Claude, Gemini, Copilot, Perplexity and more. Instant coaching panel with rule breakdown and improved prompt suggestions. Zero external API dependencies.",
+    "permissions":  [
+                        "storage",
+                        "scripting",
+                        "activeTab"
+                    ],
+    "host_permissions":  [
+                             "https://chatgpt.com/*",
+                             "https://chat.openai.com/*",
+                             "https://claude.ai/*",
+                             "https://gemini.google.com/*",
+                             "https://copilot.microsoft.com/*",
+                             "https://www.perplexity.ai/*",
+                             "https://x.com/*",
+                             "https://grok.com/*"
+                         ],
+    "background":  {
+                       "service_worker":  "background.js"
+                   },
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "https://chatgpt.com/*",
+                                                "https://chat.openai.com/*",
+                                                "https://claude.ai/*",
+                                                "https://gemini.google.com/*",
+                                                "https://copilot.microsoft.com/*",
+                                                "https://www.perplexity.ai/*",
+                                                "https://x.com/*",
+                                                "https://grok.com/*"
+                                            ],
+                                "js":  [
+                                           "content.js"
+                                       ],
+                                "run_at":  "document_idle"
+                            }
+                        ],
+    "web_accessible_resources":  [
+                                     {
+                                         "resources":  [
+                                                           "scoring/rules.js",
+                                                           "scoring/tokenizer.js",
+                                                           "ui/badge.js",
+                                                           "ui/pageWorld.js",
+                                                           "adapters/chatgpt.js",
+                                                           "adapters/claude.js",
+                                                           "adapters/gemini.js",
+                                                           "adapters/copilot.js",
+                                                           "adapters/perplexity.js",
+                                                           "adapters/grok.js",
+                                                           "adapters/registry.js",
+                                                           "ui/coach.js",
+                                                           "scoring/suggester.js",
+                                                           "response-reader.js"
+                                                       ],
+                                         "matches":  [
+                                                         "https://chatgpt.com/*",
+                                                         "https://chat.openai.com/*",
+                                                         "https://claude.ai/*",
+                                                         "https://gemini.google.com/*",
+                                                         "https://copilot.microsoft.com/*",
+                                                         "https://www.perplexity.ai/*",
+                                                         "https://x.com/*",
+                                                         "https://grok.com/*"
+                                                     ]
+                                     }
+                                 ],
+    "action":  {
+                   "default_popup":  "popup.html",
+                   "default_title":  "Mnemox"
+               },
+    "icons":  {
+                  "16":  "icons/icon16.png",
+                  "48":  "icons/icon48.png",
+                  "128":  "icons/icon128.png"
+              },
+    "homepage_url":  "https://mnemoxpro.com"
 }

@@ -61,6 +61,16 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       sendResponse({ ok: true });
       return true;
 
+    case 'RESPONSE_CAPTURED':
+      chrome.storage.local.get({ responses: [] }, function(data) {
+        var responses = data.responses;
+        responses.push(message.payload);
+        if (responses.length > 100) responses.shift();
+        chrome.storage.local.set({ responses: responses });
+        console.log('[Mnemox] response stored:', message.payload.platform, message.payload.tokenEstimate, 'tokens');
+      });
+      sendResponse({ ok: true });
+      return true;
     default:
       sendResponse({ ok: false, error: 'unknown type: ' + message.type });
   }
@@ -92,3 +102,4 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 console.log('[Mnemox] background ready');
+
