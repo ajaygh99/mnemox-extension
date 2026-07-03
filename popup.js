@@ -73,6 +73,10 @@ function renderTrust(tr) {
   }
 }
 
+function openTraces() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('traces.html') });
+}
+
 chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
   render(res.lastResult, res.lastUrl, res.sessionCount);
   renderTrust(res.lastTrustResult);

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>MnemoxTrace — AI Interaction Log</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #0F1C30; color: #FFFFFF; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header { background: #1A2B4A; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #243B5E; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo { font-size: 18px; font-weight: bold; letter-spacing: 1px; color: #5DADE2; }
+    .header-sub { font-size: 12px; color: #888; }
+    .badge-immutable { font-size: 10px; background: #1A3A2A; color: #58D68D; padding: 3px 8px; border-radius: 4px; }
+    .refresh-btn { background: #243B5E; border: none; color: #AAA; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .refresh-btn:hover { background: #2E4E7A; color: #FFF; }
+
+    /* ── Filters ── */
+    .filters { padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #1A2B4A; }
+    .filter-btn { background: #1A2B4A; border: 1px solid #243B5E; color: #AAA; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 11px; }
+    .filter-btn.active { background: #2E4E7A; border-color: #5DADE2; color: #5DADE2; }
+    .filter-btn:hover { border-color: #5DADE2; }
+
+    /* ── Stats bar ── */
+    .stats-bar { padding: 10px 24px; display: flex; gap: 24px; background: #0D1826; border-bottom: 1px solid #1A2B4A; }
+    .stat { font-size: 11px; color: #888; }
+    .stat span { color: #FFF; font-weight: bold; margin-left: 4px; }
+
+    /* ── Trace list ── */
+    .traces-list { padding: 16px 24px; max-width: 900px; margin: 0 auto; }
+    .empty { text-align: center; color: #555; padding: 60px 0; font-size: 13px; }
+    .empty-title { font-size: 16px; color: #888; margin-bottom: 8px; }
+    .loading { text-align: center; color: #5DADE2; padding: 40px 0; font-size: 13px; }
+
+    /* ── Trace card ── */
+    .trace-card { background: #1A2B4A; border-radius: 8px; margin-bottom: 10px; overflow: hidden; border: 1px solid #243B5E; }
+    .trace-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none; }
+    .trace-header:hover { background: #1E3254; }
+    .platform-badge { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; min-width: 70px; text-align: center; }
+    .platform-chatgpt    { background: #1A3D2E; color: #58D68D; }
+    .platform-claude     { background: #3D2A1A; color: #F0B27A; }
+    .platform-gemini     { background: #1A2A3D; color: #5DADE2; }
+    .platform-copilot    { background: #2A1A3D; color: #A569BD; }
+    .platform-perplexity { background: #3D3A1A; color: #F7DC6F; }
+    .platform-grok       { background: #3D1A1A; color: #EC7063; }
+    .trace-time { font-size: 11px; color: #666; flex: 1; }
+    .score-pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+    .score-prompt { background: #1A3D5C; color: #5DADE2; }
+    .score-trust  { background: #3D1A5C; color: #A569BD; }
+    .expand-icon { color: #555; font-size: 12px; margin-left: 4px; }
+
+    /* ── Trace body (expanded) ── */
+    .trace-body { display: none; padding: 12px 14px; border-top: 1px solid #243B5E; }
+    .trace-body.open { display: block; }
+    .trace-section { margin-bottom: 10px; }
+    .trace-section-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .trace-text { font-size: 12px; color: #CCC; line-height: 1.5; background: #0F1C30; padding: 8px; border-radius: 4px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .scores-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .score-detail { font-size: 11px; color: #AAA; }
+    .score-detail strong { color: #FFF; }
+
+    /* ── Enable logging notice ── */
+    .notice { background: #1A2B1A; border: 1px solid #2A4A2A; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 12px; color: #AAA; line-height: 1.6; }
+    .notice strong { color: #58D68D; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="logo">MNEMOX</span>
+    <span class="header-sub">AI Interaction Log (MnemoxTrace)</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="badge-immutable">Write-once · Immutable</span>
+    <button class="refresh-btn" onclick="loadTraces()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="filters" id="filters">
+  <button class="filter-btn active" data-platform="all" onclick="setFilter('all', this)">All</button>
+  <button class="filter-btn" data-platform="chatgpt"    onclick="setFilter('chatgpt', this)">ChatGPT</button>
+  <button class="filter-btn" data-platform="claude"     onclick="setFilter('claude', this)">Claude</button>
+  <button class="filter-btn" data-platform="gemini"     onclick="setFilter('gemini', this)">Gemini</button>
+  <button class="filter-btn" data-platform="copilot"    onclick="setFilter('copilot', this)">Copilot</button>
+  <button class="filter-btn" data-platform="perplexity" onclick="setFilter('perplexity', this)">Perplexity</button>
+  <button class="filter-btn" data-platform="grok"       onclick="setFilter('grok', this)">Grok</button>
+</div>
+
+<div class="stats-bar" id="stats-bar" style="display:none">
+  <div class="stat">Total logged: <span id="stat-total">0</span></div>
+  <div class="stat">Avg prompt score: <span id="stat-avg-prompt">--</span></div>
+  <div class="stat">Avg trust score: <span id="stat-avg-trust">--</span></div>
+  <div class="stat">Your UUID: <span id="stat-uuid" style="font-family:monospace;font-size:10px;">--</span></div>
+</div>
+
+<div class="traces-list" id="traces-list">
+  <div class="loading" id="loading">Loading traces...</div>
+</div>
+
+<script>
+var API_URL = 'https://mnemox-production.up.railway.app';
+var allTraces = [];
+var currentFilter = 'all';
+var currentUuid = null;
+
+function formatTime(iso) {
+  var d = new Date(iso);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+
+function gradeColor(grade) {
+  return { A:'#58D68D', B:'#5DADE2', C:'#F7DC6F', D:'#F0B27A', F:'#EC7063' }[grade] || '#AAA';
+}
+
+function setFilter(platform, btn) {
+  currentFilter = platform;
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderTraces();
+}
+
+function renderTraces() {
+  var list = document.getElementById('traces-list');
+  var filtered = currentFilter === 'all'
+    ? allTraces
+    : allTraces.filter(function(t) { return t.tool_name === currentFilter; });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-title">No traces yet</div>' +
+      (allTraces.length === 0
+        ? '<p>Enable TRACE_LOGGING in extension settings, then interact with any AI tool.</p>'
+        : '<p>No traces from ' + currentFilter + ' yet.</p>') +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+
+  // Stats
+  var avgPrompt = filtered.filter(function(t){return t.prompt_score!=null;});
+  var avgTrust  = filtered.filter(function(t){return t.trust_score!=null;});
+  document.getElementById('stat-total').textContent = filtered.length;
+  document.getElementById('stat-avg-prompt').textContent = avgPrompt.length
+    ? Math.round(avgPrompt.reduce(function(s,t){return s+t.prompt_score;},0)/avgPrompt.length)
+    : '--';
+  document.getElementById('stat-avg-trust').textContent = avgTrust.length
+    ? Math.round(avgTrust.reduce(function(s,t){return s+t.trust_score*100;},0)/avgTrust.length)
+    : '--';
+  document.getElementById('stats-bar').style.display = 'flex';
+
+  filtered.forEach(function(t, i) {
+    var promptPreview = (t.prompt_text || '').slice(0, 80) + (t.prompt_text && t.prompt_text.length > 80 ? '…' : '');
+    var trustPct = t.trust_score != null ? Math.round(t.trust_score * 100) : null;
+    html += '<div class="trace-card">';
+    html += '<div class="trace-header" onclick="toggle(' + i + ')">';
+    html += '<span class="platform-badge platform-' + t.tool_name + '">' + t.tool_name.toUpperCase() + '</span>';
+    html += '<span class="trace-time">' + formatTime(t.created_at) + ' &nbsp;·&nbsp; ' + promptPreview + '</span>';
+    if (t.prompt_score != null) {
+      html += '<span class="score-pill score-prompt" title="Prompt Score">' + t.prompt_score + (t.prompt_grade ? ' '+t.prompt_grade : '') + '</span>';
+    }
+    if (trustPct != null) {
+      html += '<span class="score-pill score-trust" title="Trust Score">T:' + trustPct + '</span>';
+    }
+    html += '<span class="expand-icon" id="icon-' + i + '">▼</span>';
+    html += '</div>';
+    html += '<div class="trace-body" id="body-' + i + '">';
+    html += '<div class="scores-row" style="margin-bottom:10px;">';
+    html += '<div class="score-detail">Prompt Score: <strong>' + (t.prompt_score != null ? t.prompt_score + '/100' : 'n/a') + '</strong></div>';
+    html += '<div class="score-detail">Grade: <strong style="color:' + gradeColor(t.prompt_grade) + '">' + (t.prompt_grade || 'n/a') + '</strong></div>';
+    html += '<div class="score-detail">Trust Score: <strong>' + (trustPct != null ? trustPct + '/100' : 'n/a') + '</strong></div>';
+    html += '<div class="score-detail">Tokens: <strong>' + (t.token_count != null ? t.token_count : 'n/a') + '</strong></div>';
+    html += '</div>';
+    html += '<div class="trace-section"><div class="trace-section-label">Prompt</div>';
+    html += '<div class="trace-text">' + escHtml(t.prompt_text || '') + '</div></div>';
+    if (t.response_text) {
+      html += '<div class="trace-section"><div class="trace-section-label">Response</div>';
+      html += '<div class="trace-text">' + escHtml(t.response_text.slice(0, 500)) + (t.response_text.length > 500 ? '\n…(truncated)' : '') + '</div></div>';
+    }
+    html += '</div></div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function toggle(i) {
+  var body = document.getElementById('body-' + i);
+  var icon = document.getElementById('icon-' + i);
+  var open = body.classList.toggle('open');
+  icon.textContent = open ? '▲' : '▼';
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function loadTraces() {
+  document.getElementById('traces-list').innerHTML = '<div class="loading">Loading traces...</div>';
+  document.getElementById('stats-bar').style.display = 'none';
+
+  chrome.storage.local.get(['mnemox_uuid', 'TRACE_LOGGING'], function(data) {
+    currentUuid = data.mnemox_uuid || null;
+    document.getElementById('stat-uuid').textContent = currentUuid ? currentUuid.slice(0,8) + '…' : 'none';
+
+    var url = API_URL + '/traces?limit=50';
+    if (currentUuid) url += '&mnemox_uuid=' + encodeURIComponent(currentUuid);
+
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        allTraces = data.traces || [];
+        if (allTraces.length === 0 && !data.traces_logging_enabled) {
+          document.getElementById('traces-list').innerHTML =
+            '<div class="notice"><strong>Trace logging is off.</strong> To start logging AI interactions:<br>' +
+            '1. Open the Mnemox popup<br>' +
+            '2. Enable the TRACE_LOGGING flag in extension settings<br>' +
+            '3. Interact with any AI tool — traces will appear here automatically.</div>' +
+            '<div class="empty"><div class="empty-title">No traces yet</div>' +
+            '<p>Traces appear after you interact with ChatGPT, Claude, Gemini, or other AI tools with logging enabled.</p></div>';
+          return;
+        }
+        renderTraces();
+      })
+      .catch(function(err) {
+        document.getElementById('traces-list').innerHTML =
+          '<div class="empty"><div class="empty-title">Could not load traces</div>' +
+          '<p style="color:#EC7063;margin-top:8px;">' + err.message + '</p>' +
+          '<p style="margin-top:8px;font-size:11px;">Make sure the backend is running at ' + API_URL + '</p></div>';
+      });
+  });
+}
+
+loadTraces();
+</script>
+</body>
+</html>
