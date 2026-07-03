@@ -1,0 +1,23 @@
+{
+  "name": "mnemox-mcp",
+  "version": "1.0.0",
+  "description": "Mnemox MCP server — score prompts, count tokens, save/get memories. Works with Claude Code, Cowork, Cursor.",
+  "main": "index.js",
+  "bin": {
+    "mnemox-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/runner.js"
+  },
+  "keywords": ["mcp", "mnemox", "prompt", "scoring", "tokens", "memory", "ai", "claude"],
+  "author": "Mnemox",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajaygh99/mnemox-extension"
+  }
+}
