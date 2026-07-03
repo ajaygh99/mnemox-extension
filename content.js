@@ -24,6 +24,7 @@ function injectScript(file) {
 injectScript('scoring/rules.js');
 injectScript('scoring/tokenizer.js');
 injectScript('scoring/suggester.js');
+injectScript('scoring/trust.js');
 injectScript('ui/coach.js');
 injectScript('ui/badge.js');
 injectScript('ui/pageWorld.js');
@@ -54,6 +55,7 @@ function wireObserver() {
   var debouncedScore = debounce(function () {
     var text = (target.value || target.innerText || target.textContent || '').trim();
     if (text.length < 2) return;
+    chrome.storage.local.set({ lastPromptText: text }); // save for trace logging
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
   }, 1500);
 
@@ -83,7 +85,16 @@ window.addEventListener('message', function (event) {
   }
 
   if (event.data.type === 'MNEMOX_RESPONSE') {
-    chrome.runtime.sendMessage({ type: 'RESPONSE_CAPTURED', payload: event.data.payload });
+    // Route through trust scorer (page world) before logging
+    window.postMessage({ type: 'MNEMOX_TRUST_SCORE', payload: event.data.payload }, '*');
+  }
+
+  if (event.data.type === 'MNEMOX_TRUST_RESULT') {
+    var tr = event.data.result;
+    // Save trust result so popup can display it
+    chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });
+    // Forward to background for trace logging (gated by TRACE_LOGGING flag)
+    chrome.runtime.sendMessage({ type: 'RESPONSE_SCORED', result: tr });
   }
   if (event.data.type === 'MNEMOX_HEALTHCHECK_RESULT') {
     chrome.runtime.sendMessage({ type: 'HEALTH_REPORT', result: event.data.result });

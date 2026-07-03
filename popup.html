@@ -26,7 +26,7 @@
 <body>
   <div class="header">
     <span class="logo">MNEMOX</span>
-    <span class="version">v0.1.0</span>
+    <span class="version">v1.3.0</span>
   </div>
 
   <div id="status">Waiting for input on any tab...</div>
@@ -47,6 +47,18 @@
     <div class="card-label">Token Estimate</div>
     <span id="pop-tokens" class="tokens-num">0</span>
     <span style="font-size:11px;color:#AAA;margin-left:4px;">tokens</span>
+  </div>
+
+  <div id="trust-card" class="card" style="display:none">
+    <div class="card-label">Response Quality (MnemoxTrust)</div>
+    <div class="score-row">
+      <span id="trust-score" class="score-num" style="color:#A569BD">--</span>
+      <div>
+        <div id="trust-grade" class="grade"></div>
+        <div id="trust-quality" class="sublabel"></div>
+      </div>
+    </div>
+    <div id="trust-signals" class="weak-list"></div>
   </div>
 
   <div id="session-card" class="card" style="display:none">

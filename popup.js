@@ -49,6 +49,31 @@ function render(data, url, count) {
   }
 }
 
-chrome.storage.local.get(['lastResult', 'lastUrl', 'sessionCount'], function(res) {
+function trustGradeColor(grade) {
+  var map = { A: '#A569BD', B: '#7D3C98', C: '#D7BDE2', D: '#E59866', F: '#EC7063' };
+  return map[grade] || '#AAA';
+}
+
+function renderTrust(tr) {
+  if (!tr || tr.trustScore == null) return;
+  document.getElementById('trust-card').style.display = 'block';
+  document.getElementById('trust-score').textContent  = tr.trustScore;
+  var gradeEl = document.getElementById('trust-grade');
+  gradeEl.textContent = 'Grade ' + tr.grade;
+  gradeEl.style.color = trustGradeColor(tr.grade);
+  document.getElementById('trust-quality').textContent = tr.quality || '';
+
+  if (tr.signals) {
+    var weak = Object.values(tr.signals)
+      .filter(function(s) { return s.score < s.max * 0.6; })
+      .map(function(s) { return s.message; });
+    document.getElementById('trust-signals').textContent =
+      weak.length > 0 ? weak.slice(0, 2).join(' · ') : 'All signals passing';
+    if (weak.length === 0) document.getElementById('trust-signals').style.color = '#58D68D';
+  }
+}
+
+chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
   render(res.lastResult, res.lastUrl, res.sessionCount);
+  renderTrust(res.lastTrustResult);
 });

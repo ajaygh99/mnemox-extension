@@ -61,16 +61,56 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
       sendResponse({ ok: true });
       return true;
 
-    case 'RESPONSE_CAPTURED':
-      chrome.storage.local.get({ responses: [] }, function(data) {
-        var responses = data.responses;
-        responses.push(message.payload);
-        if (responses.length > 100) responses.shift();
-        chrome.storage.local.set({ responses: responses });
-        console.log('[Mnemox] response stored:', message.payload.platform, message.payload.tokenEstimate, 'tokens');
+    case 'RESPONSE_SCORED': {
+      var scored = message.result;
+      console.log('[Mnemox] response scored: trust=' + scored.trustScore + ' (' + scored.grade + ') — ' + scored.quality);
+
+      getFlag('TRACE_LOGGING', function (enabled) {
+        if (!enabled) { sendResponse({ ok: true, logged: false }); return; }
+
+        var HOST_MAP = {
+          'chatgpt.com':           'chatgpt',
+          'chat.openai.com':       'chatgpt',
+          'claude.ai':             'claude',
+          'gemini.google.com':     'gemini',
+          'copilot.microsoft.com': 'copilot',
+          'perplexity.ai':         'perplexity',
+          'www.perplexity.ai':     'perplexity',
+          'grok.x.ai':             'grok',
+          'grok.com':              'grok',
+          'x.com':                 'grok',
+        };
+
+        var toolName = HOST_MAP[scored.platform] || null;
+        if (!toolName) { sendResponse({ ok: true, logged: false, reason: 'unknown platform' }); return; }
+
+        chrome.storage.local.get(['mnemox_uuid', 'lastPromptText', 'lastResult'], function (data) {
+          var body = JSON.stringify({
+            tool_name:     toolName,
+            prompt_text:   (data.lastPromptText || '(not captured)').slice(0, 5000),
+            response_text: scored.text ? scored.text.slice(0, 5000) : null,
+            prompt_score:  data.lastResult ? data.lastResult.score : null,
+            prompt_grade:  data.lastResult ? data.lastResult.grade : null,
+            trust_score:   scored.trustScoreNormalized,
+            token_count:   scored.tokenEstimate || null,
+            mnemox_uuid:   data.mnemox_uuid || null,
+          });
+
+          fetch('https://mnemox-production.up.railway.app/traces', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    body,
+          }).then(function (r) {
+            console.log('[Mnemox] trace logged:', r.status);
+          }).catch(function (err) {
+            console.warn('[Mnemox] trace log failed (silent):', err.message);
+          });
+
+          sendResponse({ ok: true, logged: true });
+        });
       });
-      sendResponse({ ok: true });
       return true;
+    }
     default:
       sendResponse({ ok: false, error: 'unknown type: ' + message.type });
   }
