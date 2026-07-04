@@ -8,7 +8,7 @@ const FLAG_DEFAULTS = {
   PROMPT_COACHING: false,
   PAYWALL:         false,
   TRUST_SCORING:   false,
-  TRACE_LOGGING:   false,
+  TRACE_LOGGING:   true,
 };
 
 function getFlag(key, callback) {
@@ -178,5 +178,12 @@ chrome.runtime.onInstalled.addListener(function() {
     console.log('[Mnemox] installed. Flags:', JSON.stringify(flags));
   });
 });
+
+// Warm up Railway backend on service-worker start to reduce cold-start delay
+function warmupBackend() {
+  fetch(API_BASE + '/health').catch(function() { /* silent — just waking the server */ });
+}
+warmupBackend();
+chrome.runtime.onStartup.addListener(warmupBackend);
 
 console.log('[Mnemox] background ready');

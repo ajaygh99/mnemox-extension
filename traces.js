@@ -63,7 +63,13 @@ function renderTraces() {
 
   // Stats
   var promptScores = filtered.map(function (t) { return t.prompt_score; }).filter(function (s) { return s != null; });
-  var trustScores  = filtered.map(function (t) { return t.trust_score;  }).filter(function (s) { return s != null; });
+  // Normalize trust scores from 0-1 decimal → 0-100
+  var trustScores = filtered
+    .map(function (t) {
+      if (t.trust_score == null) return null;
+      return t.trust_score <= 1.0 ? Math.round(t.trust_score * 100) : t.trust_score;
+    })
+    .filter(function (s) { return s != null; });
   var avgPrompt = promptScores.length ? Math.round(promptScores.reduce(function (a, b) { return a + b; }, 0) / promptScores.length) : null;
   var avgTrust  = trustScores.length  ? Math.round(trustScores.reduce(function (a, b)  { return a + b; }, 0) / trustScores.length)  : null;
 
@@ -77,15 +83,13 @@ function renderTraces() {
   var html = '';
   for (var i = 0; i < filtered.length; i++) {
     var t = filtered[i];
-    var ps = t.prompt_score;
-    var ts = t.trust_score;
-    var platform = (t.platform || 'unknown').toLowerCase()
-      .replace(/chatgpt\.com|chat\.openai\.com/, 'chatgpt')
-      .replace(/claude\.ai/, 'claude')
-      .replace(/gemini\.google\.com/, 'gemini')
-      .replace(/copilot\.microsoft\.com/, 'copilot')
-      .replace(/perplexity\.ai|www\.perplexity\.ai/, 'perplexity')
-      .replace(/grok\.x\.ai|grok\.com|x\.com/, 'grok');
+    var ps = t.prompt_score; // integer 0-100
+    // trust_score stored as 0.0-1.0 decimal in backend — convert to 0-100
+    var ts = (t.trust_score != null && t.trust_score <= 1.0)
+      ? Math.round(t.trust_score * 100)
+      : t.trust_score;
+    // platform comes from tool_name field (e.g. "chatgpt", "claude")
+    var platform = (t.tool_name || t.platform || 'unknown').toLowerCase();
     var platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
 
     html += '<div class="trace-card">';
@@ -133,8 +137,8 @@ function renderTraces() {
       html += '</div></div>';
     }
 
-    if (t.token_estimate) {
-      html += '<div class="trace-section"><div class="score-detail">~' + escHtml(t.token_estimate) + ' response tokens</div></div>';
+    if (t.token_count) {
+      html += '<div class="trace-section"><div class="score-detail">~' + escHtml(t.token_count) + ' response tokens</div></div>';
     }
 
     html += '</div>'; // .trace-body
