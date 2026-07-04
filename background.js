@@ -123,9 +123,11 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
         traceCooldown[toolName] = now;
 
         chrome.storage.local.get(['mnemox_uuid', 'lastPromptText', 'lastResult'], function(data) {
+          // message.promptText is passed directly from content.js to avoid async race
+          var promptText = message.promptText || data.lastPromptText || '(not captured)';
           var body = JSON.stringify({
             tool_name:     toolName,
-            prompt_text:   (data.lastPromptText || '(not captured)').slice(0, 5000),
+            prompt_text:   promptText.slice(0, 5000),
             response_text: scored.text ? scored.text.slice(0, 5000) : null,
             prompt_score:  data.lastResult ? data.lastResult.score : null,
             prompt_grade:  data.lastResult ? data.lastResult.grade : null,

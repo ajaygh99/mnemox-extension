@@ -1,8 +1,7 @@
 // Mnemox - Content Script
-// Performance: debounces cut 60%, single boot timer, safeChrome wrapper.
 
 function safeChrome(fn) {
-  try { fn(); } catch (e) { /* extension context gone after reload — safe to ignore */ }
+  try { fn(); } catch (e) { /* extension context gone after reload */ }
 }
 
 safeChrome(function () {
@@ -46,34 +45,44 @@ injectScript('adapters/registry.js');
 injectScript('response-reader.js');
 
 var wired = false;
+var promptObserver = null; // track MutationObserver so we can disconnect on re-wire
+
+// Ordered by platform specificity — narrow selectors first
+var INPUT_SELECTORS = [
+  // ChatGPT
+  '#prompt-textarea',
+  // Claude — ProseMirror editor (contenteditable with role=textbox or data-placeholder)
+  'div[contenteditable="true"][data-placeholder]',
+  'div[contenteditable="true"][role="textbox"]',
+  '.ProseMirror[contenteditable="true"]',
+  // Generic contenteditable with aria-label (many platforms)
+  'div[contenteditable="true"][aria-label]',
+  // Generic textarea
+  'textarea',
+  // Last-resort contenteditable — only matches the FIRST one, so keep at end
+  '[contenteditable="true"]',
+  'input[type="text"]',
+];
 
 function wireObserver() {
   if (wired) return;
-  // Ordered by specificity — most specific first
-  var SELECTORS = [
-    '#prompt-textarea',
-    'div[contenteditable="true"][aria-label]',
-    '[contenteditable="true"]',
-    'textarea',
-    'input[type="text"]',
-    'input:not([type])',
-  ];
+
   var target = null;
-  for (var i = 0; i < SELECTORS.length; i++) {
-    target = document.querySelector(SELECTORS[i]);
-    if (target) break;
+  for (var i = 0; i < INPUT_SELECTORS.length; i++) {
+    var el = document.querySelector(INPUT_SELECTORS[i]);
+    if (el) { target = el; break; }
   }
-  if (!target) { setTimeout(wireObserver, 500); return; } // was 2000ms
+  if (!target) { setTimeout(wireObserver, 500); return; }
 
   wired = true;
-  console.log('[Mnemox] wired to', target.tagName, (target.id || target.getAttribute('aria-label') || ''));
+  console.log('[Mnemox] wired to', target.tagName,
+    (target.id || target.getAttribute('aria-label') || target.getAttribute('data-placeholder') || ''));
 
   function getText() {
     return (target.value || target.innerText || target.textContent || '').trim();
   }
 
-  // Eagerly save prompt text on every change (no debounce) so it's
-  // always current regardless of how/when the user submits.
+  // Save prompt text eagerly (every keystroke) — no debounce
   function saveText() {
     var text = getText();
     if (text.length > 1) {
@@ -81,7 +90,7 @@ function wireObserver() {
     }
   }
 
-  // Scoring: debounced so we don't score every keystroke
+  // Score prompt 500ms after typing stops
   var debouncedScore = debounce(function () {
     var text = getText();
     if (text.length < 2) return;
@@ -92,17 +101,33 @@ function wireObserver() {
 
   target.addEventListener('input',  onInput);
   target.addEventListener('keyup',  onInput);
-  // keydown: capture text right before Enter clears the field
+  // keydown: grab text right before Enter might clear the field
   target.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) saveText();
   });
 
-  // Watch contenteditable mutations (paste, programmatic updates)
+  // Disconnect previous MutationObserver if re-wiring after SPA nav
+  if (promptObserver) { promptObserver.disconnect(); promptObserver = null; }
+
+  // Watch contenteditable mutations (paste, programmatic inserts)
+  // Use characterData only to avoid re-firing on response DOM changes
   if (target.getAttribute('contenteditable')) {
-    var promptObserver = new MutationObserver(onInput);
+    promptObserver = new MutationObserver(function (mutations) {
+      var hasTextChange = mutations.some(function (m) {
+        return m.type === 'characterData' ||
+               (m.type === 'childList' && m.addedNodes.length > 0);
+      });
+      if (hasTextChange) onInput();
+    });
     promptObserver.observe(target, { childList: true, subtree: true, characterData: true });
   }
 }
+
+// ── Trust score deduplication ───────────────────────────────────────────────
+// Content.js gets many MNEMOX_RESPONSE events during streaming.
+// Only forward the LAST one (2s after stream settles) to the trust scorer.
+var trustDebounceTimer = null;
+var lastTrustPayload = null;
 
 window.addEventListener('message', function (event) {
   if (event.source !== window || !event.data) return;
@@ -119,15 +144,27 @@ window.addEventListener('message', function (event) {
     });
   }
 
+  // Debounce MNEMOX_RESPONSE so streaming produces exactly ONE trust score
   if (event.data.type === 'MNEMOX_RESPONSE') {
-    window.postMessage({ type: 'MNEMOX_TRUST_SCORE', payload: event.data.payload }, '*');
+    lastTrustPayload = event.data.payload;
+    clearTimeout(trustDebounceTimer);
+    trustDebounceTimer = setTimeout(function () {
+      window.postMessage({ type: 'MNEMOX_TRUST_SCORE', payload: lastTrustPayload }, '*');
+    }, 1500); // fire 1.5s after last response chunk — streaming should be done
   }
 
   if (event.data.type === 'MNEMOX_TRUST_RESULT') {
     var tr = event.data.result;
     safeChrome(function () {
-      chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });
-      chrome.runtime.sendMessage({ type: 'RESPONSE_SCORED', result: tr });
+      chrome.storage.local.get(['lastPromptText'], function (data) {
+        chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });
+        // Pass promptText directly so background.js doesn't race against async storage reads
+        chrome.runtime.sendMessage({
+          type:       'RESPONSE_SCORED',
+          result:     tr,
+          promptText: data.lastPromptText || null,
+        });
+      });
     });
   }
 
@@ -138,7 +175,7 @@ window.addEventListener('message', function (event) {
   }
 });
 
-// Single boot timer (was two competing timers at 800ms + 1200ms)
+// Single boot timer
 setTimeout(wireObserver, 400);
 window.addEventListener('load', function () {
   if (!wired) wireObserver();
@@ -154,10 +191,9 @@ window.addEventListener('load', function () {
     if (location.href === lastHref) return;
     lastHref = location.href;
     wired = false;
+    clearTimeout(trustDebounceTimer); // cancel any pending trust score
     setTimeout(function () {
       wireObserver();
-      // Re-inject badge and pageWorld in case React replaced DOM nodes.
-      // pageWorld.js is idempotent (skips duplicate listener via __mnemoxPageWorldReady).
       injectScript('ui/badge.js');
       injectScript('ui/pageWorld.js');
     }, 600);
