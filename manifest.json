@@ -17,7 +17,8 @@
                              "https://copilot.microsoft.com/*",
                              "https://www.perplexity.ai/*",
                              "https://x.com/*",
-                             "https://grok.com/*"
+                             "https://grok.com/*",
+                             "https://mnemox-production.up.railway.app/*"
                          ],
     "background":  {
                        "service_worker":  "background.js"
