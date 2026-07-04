@@ -1,12 +1,19 @@
 // Mnemox - Content Script
 // Detects textarea input, scores locally, updates badge. Zero external API calls.
 
-chrome.runtime.sendMessage({ type: 'FLAG_TEST' }, function (response) {
-  if (chrome.runtime.lastError) return;
-  if (response && response.ok) {
-    console.log('[Mnemox] loaded on', window.location.hostname);
-    console.log('[Mnemox] flags:', JSON.stringify(response.flags));
-  }
+// Safe wrapper — prevents "Extension context invalidated" errors after extension reload
+function safeChrome(fn) {
+  try { fn(); } catch (e) { /* context gone after reload — safe to ignore */ }
+}
+
+safeChrome(function() {
+  chrome.runtime.sendMessage({ type: 'FLAG_TEST' }, function (response) {
+    if (chrome.runtime.lastError) return;
+    if (response && response.ok) {
+      console.log('[Mnemox] loaded on', window.location.hostname);
+      console.log('[Mnemox] flags:', JSON.stringify(response.flags));
+    }
+  });
 });
 
 function debounce(fn, ms) {
@@ -15,10 +22,12 @@ function debounce(fn, ms) {
 }
 
 function injectScript(file) {
-  var s = document.createElement('script');
-  s.src = chrome.runtime.getURL(file);
-  s.onload = function () { this.remove(); };
-  (document.head || document.documentElement).appendChild(s);
+  try {
+    var s = document.createElement('script');
+    s.src = chrome.runtime.getURL(file);
+    s.onload = function () { this.remove(); };
+    (document.head || document.documentElement).appendChild(s);
+  } catch (e) { /* extension context gone */ }
 }
 
 injectScript('scoring/rules.js');
@@ -52,10 +61,25 @@ function wireObserver() {
   wired = true;
   console.log('[Mnemox] wired to', target.tagName, (target.id || ''));
 
+  // Save prompt text immediately on Enter keydown — ensures it's in storage
+  // before the response comes back and RESPONSE_SCORED fires.
+  target.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      var text = (target.value || target.innerText || target.textContent || '').trim();
+      if (text.length > 1) {
+        safeChrome(function () {
+          chrome.storage.local.set({ lastPromptText: text });
+        });
+      }
+    }
+  });
+
   var debouncedScore = debounce(function () {
     var text = (target.value || target.innerText || target.textContent || '').trim();
     if (text.length < 2) return;
-    chrome.storage.local.set({ lastPromptText: text }); // save for trace logging
+    safeChrome(function () {
+      chrome.storage.local.set({ lastPromptText: text });
+    });
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
   }, 1500);
 
@@ -74,30 +98,34 @@ window.addEventListener('message', function (event) {
   if (!event.data) return;
 
   if (event.data.type === 'MNEMOX_RESULT') {
-    chrome.storage.local.get(['sessionCount'], function(data) {
-      var count = (data.sessionCount || 0) + 1;
-      chrome.storage.local.set({
-        lastResult: event.data.result,
-        lastUrl: window.location.hostname,
-        sessionCount: count
+    safeChrome(function () {
+      chrome.storage.local.get(['sessionCount'], function(data) {
+        var count = (data.sessionCount || 0) + 1;
+        chrome.storage.local.set({
+          lastResult: event.data.result,
+          lastUrl: window.location.hostname,
+          sessionCount: count
+        });
       });
     });
   }
 
   if (event.data.type === 'MNEMOX_RESPONSE') {
-    // Route through trust scorer (page world) before logging
     window.postMessage({ type: 'MNEMOX_TRUST_SCORE', payload: event.data.payload }, '*');
   }
 
   if (event.data.type === 'MNEMOX_TRUST_RESULT') {
     var tr = event.data.result;
-    // Save trust result so popup can display it
-    chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });
-    // Forward to background for trace logging (gated by TRACE_LOGGING flag)
-    chrome.runtime.sendMessage({ type: 'RESPONSE_SCORED', result: tr });
+    safeChrome(function () {
+      chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });
+      chrome.runtime.sendMessage({ type: 'RESPONSE_SCORED', result: tr });
+    });
   }
+
   if (event.data.type === 'MNEMOX_HEALTHCHECK_RESULT') {
-    chrome.runtime.sendMessage({ type: 'HEALTH_REPORT', result: event.data.result });
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: 'HEALTH_REPORT', result: event.data.result });
+    });
   }
 });
 
@@ -111,5 +139,3 @@ window.addEventListener('load', function () {
   setTimeout(runHealthCheck, 1500);
 });
 setTimeout(wireObserver, 1200);
-
-

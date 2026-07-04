@@ -196,7 +196,7 @@ function escHtml(str) {
 }
 
 function loadTraces() {
-  document.getElementById('traces-list').innerHTML = '<div class="loading">Loading traces...</div>';
+  document.getElementById('traces-list').innerHTML = '<div class="loading">Loading traces…</div>';
   document.getElementById('stats-bar').style.display = 'none';
 
   chrome.storage.local.get(['mnemox_uuid', 'TRACE_LOGGING'], function(data) {
@@ -206,27 +206,35 @@ function loadTraces() {
     var url = API_URL + '/traces?limit=50';
     if (currentUuid) url += '&mnemox_uuid=' + encodeURIComponent(currentUuid);
 
-    fetch(url)
-      .then(function(r) { return r.json(); })
+    // 20-second timeout — Railway may cold-start after inactivity
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
+
+    fetch(url, { signal: controller.signal })
+      .then(function(r) {
+        clearTimeout(timeoutId);
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' from backend');
+        return r.json();
+      })
       .then(function(data) {
         allTraces = data.traces || [];
-        if (allTraces.length === 0 && !data.traces_logging_enabled) {
+        if (allTraces.length === 0) {
           document.getElementById('traces-list').innerHTML =
-            '<div class="notice"><strong>Trace logging is off.</strong> To start logging AI interactions:<br>' +
-            '1. Open the Mnemox popup<br>' +
-            '2. Enable the TRACE_LOGGING flag in extension settings<br>' +
-            '3. Interact with any AI tool — traces will appear here automatically.</div>' +
-            '<div class="empty"><div class="empty-title">No traces yet</div>' +
-            '<p>Traces appear after you interact with ChatGPT, Claude, Gemini, or other AI tools with logging enabled.</p></div>';
+            '<div class="notice"><strong>No traces yet.</strong> Interact with any AI tool — traces appear here automatically when TRACE_LOGGING is on.</div>';
+          document.getElementById('stats-bar').style.display = 'flex';
           return;
         }
         renderTraces();
       })
       .catch(function(err) {
+        clearTimeout(timeoutId);
+        var msg = err.name === 'AbortError'
+          ? 'Request timed out (20s) — backend may be cold-starting. Click ↻ Refresh in a few seconds.'
+          : err.message;
         document.getElementById('traces-list').innerHTML =
           '<div class="empty"><div class="empty-title">Could not load traces</div>' +
-          '<p style="color:#EC7063;margin-top:8px;">' + err.message + '</p>' +
-          '<p style="margin-top:8px;font-size:11px;">Make sure the backend is running at ' + API_URL + '</p></div>';
+          '<p style="color:#EC7063;margin-top:8px;">' + msg + '</p>' +
+          '<p style="margin-top:8px;font-size:11px;color:#666;">Backend: ' + API_URL + '</p></div>';
       });
   });
 }
