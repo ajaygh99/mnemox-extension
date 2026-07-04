@@ -89,3 +89,7 @@ var MnemoxBadge = (function () {
 
   return { inject: inject, update: update, hide: hide, show: show };
 })();
+
+// Auto-inject so the badge is always visible on supported pages,
+// even before the first prompt is scored.
+MnemoxBadge.inject();

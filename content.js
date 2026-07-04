@@ -138,14 +138,20 @@ window.addEventListener('load', function () {
   }, 800);
 });
 
-// SPA navigation — reset wired so wireObserver re-attaches to new page's textarea
+// SPA navigation — reset wired, re-wire textarea, re-inject badge
 (function () {
   var lastHref = location.href;
   function onNav() {
     if (location.href === lastHref) return;
     lastHref = location.href;
     wired = false;
-    setTimeout(wireObserver, 600); // give new page DOM time to render
+    setTimeout(function () {
+      wireObserver();
+      // Re-inject badge and pageWorld in case React replaced DOM nodes.
+      // pageWorld.js is idempotent (skips duplicate listener via __mnemoxPageWorldReady).
+      injectScript('ui/badge.js');
+      injectScript('ui/pageWorld.js');
+    }, 600);
   }
   var titleNode = document.querySelector('title');
   if (titleNode) new MutationObserver(onNav).observe(titleNode, { childList: true });

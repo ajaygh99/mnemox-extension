@@ -2,6 +2,14 @@
 // Receives MNEMOX_SCORE, scores, counts tokens, generates suggestion, updates badge.
 
 (function () {
+  // Idempotency guard — re-injection after SPA nav must not add duplicate listeners
+  if (window.__mnemoxPageWorldReady) {
+    // Already running — just re-inject badge in case it was removed from DOM
+    if (typeof MnemoxBadge !== 'undefined') MnemoxBadge.inject();
+    return;
+  }
+  window.__mnemoxPageWorldReady = true;
+
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
     if (!event.data) return;
