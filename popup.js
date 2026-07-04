@@ -84,31 +84,3 @@ chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCo
   render(res.lastResult, res.lastUrl, res.sessionCount);
   renderTrust(res.lastTrustResult);
 });
-
-// ── Cloud Traces opt-in toggle ───────────────────────────────────────────
-// TRACE_LOGGING defaults to false — no prompt/response text is sent
-// anywhere until the user flips this on themselves.
-(function () {
-  var toggle = document.getElementById('trace-toggle');
-  var status = document.getElementById('trace-toggle-status');
-
-  function renderStatus(enabled) {
-    status.textContent = enabled
-      ? 'On — prompt & response text is sent to the Traces dashboard'
-      : 'Off — nothing leaves your browser';
-    status.style.color = enabled ? '#F0B27A' : '#888';
-  }
-
-  chrome.storage.local.get(['TRACE_LOGGING'], function (res) {
-    var enabled = !!res.TRACE_LOGGING;
-    toggle.checked = enabled;
-    renderStatus(enabled);
-  });
-
-  toggle.addEventListener('change', function () {
-    var enabled = toggle.checked;
-    chrome.storage.local.set({ TRACE_LOGGING: enabled }, function () {
-      renderStatus(enabled);
-    });
-  });
-})();
