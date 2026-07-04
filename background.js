@@ -4,10 +4,10 @@
 const API_BASE = 'https://mnemox-production.up.railway.app';
 
 const FLAG_DEFAULTS = {
-  TOKEN_COUNTER:   false,
-  PROMPT_COACHING: false,
+  TOKEN_COUNTER:   true,
+  PROMPT_COACHING: true,
   PAYWALL:         false,
-  TRUST_SCORING:   false,
+  TRUST_SCORING:   true,
   TRACE_LOGGING:   true,
 };
 

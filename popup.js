@@ -78,6 +78,7 @@ function openTraces() {
 }
 
 document.getElementById('traces-btn').addEventListener('click', openTraces);
+document.getElementById('traces-footer-btn').addEventListener('click', openTraces);
 
 chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
   render(res.lastResult, res.lastUrl, res.sessionCount);

@@ -135,5 +135,19 @@ window.addEventListener('load', function () {
   if (!wired) wireObserver();
   setTimeout(function () {
     window.postMessage({ type: 'MNEMOX_HEALTHCHECK' }, '*');
-  }, 800); // was 1500ms
+  }, 800);
 });
+
+// SPA navigation — reset wired so wireObserver re-attaches to new page's textarea
+(function () {
+  var lastHref = location.href;
+  function onNav() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    wired = false;
+    setTimeout(wireObserver, 600); // give new page DOM time to render
+  }
+  var titleNode = document.querySelector('title');
+  if (titleNode) new MutationObserver(onNav).observe(titleNode, { childList: true });
+  window.addEventListener('popstate', onNav);
+})();
