@@ -6,8 +6,6 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; background: #0F1C30; color: #FFFFFF; min-height: 100vh; }
-
-    /* ── Header ── */
     .header { background: #1A2B4A; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #243B5E; }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .logo { font-size: 18px; font-weight: bold; letter-spacing: 1px; color: #5DADE2; }
@@ -15,25 +13,17 @@
     .badge-immutable { font-size: 10px; background: #1A3A2A; color: #58D68D; padding: 3px 8px; border-radius: 4px; }
     .refresh-btn { background: #243B5E; border: none; color: #AAA; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
     .refresh-btn:hover { background: #2E4E7A; color: #FFF; }
-
-    /* ── Filters ── */
     .filters { padding: 12px 24px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #1A2B4A; }
     .filter-btn { background: #1A2B4A; border: 1px solid #243B5E; color: #AAA; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 11px; }
     .filter-btn.active { background: #2E4E7A; border-color: #5DADE2; color: #5DADE2; }
     .filter-btn:hover { border-color: #5DADE2; }
-
-    /* ── Stats bar ── */
     .stats-bar { padding: 10px 24px; display: flex; gap: 24px; background: #0D1826; border-bottom: 1px solid #1A2B4A; }
     .stat { font-size: 11px; color: #888; }
     .stat span { color: #FFF; font-weight: bold; margin-left: 4px; }
-
-    /* ── Trace list ── */
     .traces-list { padding: 16px 24px; max-width: 900px; margin: 0 auto; }
     .empty { text-align: center; color: #555; padding: 60px 0; font-size: 13px; }
     .empty-title { font-size: 16px; color: #888; margin-bottom: 8px; }
     .loading { text-align: center; color: #5DADE2; padding: 40px 0; font-size: 13px; }
-
-    /* ── Trace card ── */
     .trace-card { background: #1A2B4A; border-radius: 8px; margin-bottom: 10px; overflow: hidden; border: 1px solid #243B5E; }
     .trace-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; user-select: none; }
     .trace-header:hover { background: #1E3254; }
@@ -49,8 +39,6 @@
     .score-prompt { background: #1A3D5C; color: #5DADE2; }
     .score-trust  { background: #3D1A5C; color: #A569BD; }
     .expand-icon { color: #555; font-size: 12px; margin-left: 4px; }
-
-    /* ── Trace body (expanded) ── */
     .trace-body { display: none; padding: 12px 14px; border-top: 1px solid #243B5E; }
     .trace-body.open { display: block; }
     .trace-section { margin-bottom: 10px; }
@@ -59,8 +47,6 @@
     .scores-row { display: flex; gap: 16px; flex-wrap: wrap; }
     .score-detail { font-size: 11px; color: #AAA; }
     .score-detail strong { color: #FFF; }
-
-    /* ── Enable logging notice ── */
     .notice { background: #1A2B1A; border: 1px solid #2A4A2A; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 12px; color: #AAA; line-height: 1.6; }
     .notice strong { color: #58D68D; }
   </style>
@@ -74,18 +60,18 @@
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <span class="badge-immutable">Write-once · Immutable</span>
-    <button class="refresh-btn" onclick="loadTraces()">↻ Refresh</button>
+    <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
   </div>
 </div>
 
 <div class="filters" id="filters">
-  <button class="filter-btn active" data-platform="all" onclick="setFilter('all', this)">All</button>
-  <button class="filter-btn" data-platform="chatgpt"    onclick="setFilter('chatgpt', this)">ChatGPT</button>
-  <button class="filter-btn" data-platform="claude"     onclick="setFilter('claude', this)">Claude</button>
-  <button class="filter-btn" data-platform="gemini"     onclick="setFilter('gemini', this)">Gemini</button>
-  <button class="filter-btn" data-platform="copilot"    onclick="setFilter('copilot', this)">Copilot</button>
-  <button class="filter-btn" data-platform="perplexity" onclick="setFilter('perplexity', this)">Perplexity</button>
-  <button class="filter-btn" data-platform="grok"       onclick="setFilter('grok', this)">Grok</button>
+  <button class="filter-btn active" data-platform="all">All</button>
+  <button class="filter-btn" data-platform="chatgpt">ChatGPT</button>
+  <button class="filter-btn" data-platform="claude">Claude</button>
+  <button class="filter-btn" data-platform="gemini">Gemini</button>
+  <button class="filter-btn" data-platform="copilot">Copilot</button>
+  <button class="filter-btn" data-platform="perplexity">Perplexity</button>
+  <button class="filter-btn" data-platform="grok">Grok</button>
 </div>
 
 <div class="stats-bar" id="stats-bar" style="display:none">
@@ -96,150 +82,9 @@
 </div>
 
 <div class="traces-list" id="traces-list">
-  <div class="loading" id="loading">Loading traces...</div>
+  <div class="loading">Loading traces...</div>
 </div>
 
-<script>
-var API_URL = 'https://mnemox-production.up.railway.app';
-var allTraces = [];
-var currentFilter = 'all';
-var currentUuid = null;
-
-function formatTime(iso) {
-  var d = new Date(iso);
-  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-}
-
-function gradeColor(grade) {
-  return { A:'#58D68D', B:'#5DADE2', C:'#F7DC6F', D:'#F0B27A', F:'#EC7063' }[grade] || '#AAA';
-}
-
-function setFilter(platform, btn) {
-  currentFilter = platform;
-  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  renderTraces();
-}
-
-function renderTraces() {
-  var list = document.getElementById('traces-list');
-  var filtered = currentFilter === 'all'
-    ? allTraces
-    : allTraces.filter(function(t) { return t.tool_name === currentFilter; });
-
-  if (filtered.length === 0) {
-    list.innerHTML = '<div class="empty"><div class="empty-title">No traces yet</div>' +
-      (allTraces.length === 0
-        ? '<p>Enable TRACE_LOGGING in extension settings, then interact with any AI tool.</p>'
-        : '<p>No traces from ' + currentFilter + ' yet.</p>') +
-      '</div>';
-    return;
-  }
-
-  var html = '';
-
-  // Stats
-  var avgPrompt = filtered.filter(function(t){return t.prompt_score!=null;});
-  var avgTrust  = filtered.filter(function(t){return t.trust_score!=null;});
-  document.getElementById('stat-total').textContent = filtered.length;
-  document.getElementById('stat-avg-prompt').textContent = avgPrompt.length
-    ? Math.round(avgPrompt.reduce(function(s,t){return s+t.prompt_score;},0)/avgPrompt.length)
-    : '--';
-  document.getElementById('stat-avg-trust').textContent = avgTrust.length
-    ? Math.round(avgTrust.reduce(function(s,t){return s+t.trust_score*100;},0)/avgTrust.length)
-    : '--';
-  document.getElementById('stats-bar').style.display = 'flex';
-
-  filtered.forEach(function(t, i) {
-    var promptPreview = (t.prompt_text || '').slice(0, 80) + (t.prompt_text && t.prompt_text.length > 80 ? '…' : '');
-    var trustPct = t.trust_score != null ? Math.round(t.trust_score * 100) : null;
-    html += '<div class="trace-card">';
-    html += '<div class="trace-header" onclick="toggle(' + i + ')">';
-    html += '<span class="platform-badge platform-' + t.tool_name + '">' + t.tool_name.toUpperCase() + '</span>';
-    html += '<span class="trace-time">' + formatTime(t.created_at) + ' &nbsp;·&nbsp; ' + promptPreview + '</span>';
-    if (t.prompt_score != null) {
-      html += '<span class="score-pill score-prompt" title="Prompt Score">' + t.prompt_score + (t.prompt_grade ? ' '+t.prompt_grade : '') + '</span>';
-    }
-    if (trustPct != null) {
-      html += '<span class="score-pill score-trust" title="Trust Score">T:' + trustPct + '</span>';
-    }
-    html += '<span class="expand-icon" id="icon-' + i + '">▼</span>';
-    html += '</div>';
-    html += '<div class="trace-body" id="body-' + i + '">';
-    html += '<div class="scores-row" style="margin-bottom:10px;">';
-    html += '<div class="score-detail">Prompt Score: <strong>' + (t.prompt_score != null ? t.prompt_score + '/100' : 'n/a') + '</strong></div>';
-    html += '<div class="score-detail">Grade: <strong style="color:' + gradeColor(t.prompt_grade) + '">' + (t.prompt_grade || 'n/a') + '</strong></div>';
-    html += '<div class="score-detail">Trust Score: <strong>' + (trustPct != null ? trustPct + '/100' : 'n/a') + '</strong></div>';
-    html += '<div class="score-detail">Tokens: <strong>' + (t.token_count != null ? t.token_count : 'n/a') + '</strong></div>';
-    html += '</div>';
-    html += '<div class="trace-section"><div class="trace-section-label">Prompt</div>';
-    html += '<div class="trace-text">' + escHtml(t.prompt_text || '') + '</div></div>';
-    if (t.response_text) {
-      html += '<div class="trace-section"><div class="trace-section-label">Response</div>';
-      html += '<div class="trace-text">' + escHtml(t.response_text.slice(0, 500)) + (t.response_text.length > 500 ? '\n…(truncated)' : '') + '</div></div>';
-    }
-    html += '</div></div>';
-  });
-
-  list.innerHTML = html;
-}
-
-function toggle(i) {
-  var body = document.getElementById('body-' + i);
-  var icon = document.getElementById('icon-' + i);
-  var open = body.classList.toggle('open');
-  icon.textContent = open ? '▲' : '▼';
-}
-
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function loadTraces() {
-  document.getElementById('traces-list').innerHTML = '<div class="loading">Loading traces…</div>';
-  document.getElementById('stats-bar').style.display = 'none';
-
-  chrome.storage.local.get(['mnemox_uuid', 'TRACE_LOGGING'], function(data) {
-    currentUuid = data.mnemox_uuid || null;
-    document.getElementById('stat-uuid').textContent = currentUuid ? currentUuid.slice(0,8) + '…' : 'none';
-
-    var url = API_URL + '/traces?limit=50';
-    if (currentUuid) url += '&mnemox_uuid=' + encodeURIComponent(currentUuid);
-
-    // 20-second timeout — Railway may cold-start after inactivity
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
-
-    fetch(url, { signal: controller.signal })
-      .then(function(r) {
-        clearTimeout(timeoutId);
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' from backend');
-        return r.json();
-      })
-      .then(function(data) {
-        allTraces = data.traces || [];
-        if (allTraces.length === 0) {
-          document.getElementById('traces-list').innerHTML =
-            '<div class="notice"><strong>No traces yet.</strong> Interact with any AI tool — traces appear here automatically when TRACE_LOGGING is on.</div>';
-          document.getElementById('stats-bar').style.display = 'flex';
-          return;
-        }
-        renderTraces();
-      })
-      .catch(function(err) {
-        clearTimeout(timeoutId);
-        var msg = err.name === 'AbortError'
-          ? 'Request timed out (20s) — backend may be cold-starting. Click ↻ Refresh in a few seconds.'
-          : err.message;
-        document.getElementById('traces-list').innerHTML =
-          '<div class="empty"><div class="empty-title">Could not load traces</div>' +
-          '<p style="color:#EC7063;margin-top:8px;">' + msg + '</p>' +
-          '<p style="margin-top:8px;font-size:11px;color:#666;">Backend: ' + API_URL + '</p></div>';
-      });
-  });
-}
-
-loadTraces();
-</script>
+<script src="traces.js"></script>
 </body>
 </html>

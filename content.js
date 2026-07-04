@@ -1,12 +1,11 @@
 // Mnemox - Content Script
-// Detects textarea input, scores locally, updates badge. Zero external API calls.
+// Performance: debounces cut 60%, single boot timer, safeChrome wrapper.
 
-// Safe wrapper — prevents "Extension context invalidated" errors after extension reload
 function safeChrome(fn) {
-  try { fn(); } catch (e) { /* context gone after reload — safe to ignore */ }
+  try { fn(); } catch (e) { /* extension context gone after reload — safe to ignore */ }
 }
 
-safeChrome(function() {
+safeChrome(function () {
   chrome.runtime.sendMessage({ type: 'FLAG_TEST' }, function (response) {
     if (chrome.runtime.lastError) return;
     if (response && response.ok) {
@@ -27,7 +26,7 @@ function injectScript(file) {
     s.src = chrome.runtime.getURL(file);
     s.onload = function () { this.remove(); };
     (document.head || document.documentElement).appendChild(s);
-  } catch (e) { /* extension context gone */ }
+  } catch (e) { /* context gone */ }
 }
 
 injectScript('scoring/rules.js');
@@ -50,38 +49,42 @@ var wired = false;
 
 function wireObserver() {
   if (wired) return;
-  var SELECTORS = ['#prompt-textarea', '[contenteditable="true"]', 'textarea', 'input[type="text"]', 'input:not([type])', 'input[type="search"]'];
+  // Ordered by specificity — most specific first
+  var SELECTORS = [
+    '#prompt-textarea',
+    'div[contenteditable="true"][aria-label]',
+    '[contenteditable="true"]',
+    'textarea',
+    'input[type="text"]',
+    'input:not([type])',
+  ];
   var target = null;
   for (var i = 0; i < SELECTORS.length; i++) {
     target = document.querySelector(SELECTORS[i]);
     if (target) break;
   }
-  if (!target) { setTimeout(wireObserver, 2000); return; }
+  if (!target) { setTimeout(wireObserver, 500); return; } // was 2000ms
 
   wired = true;
-  console.log('[Mnemox] wired to', target.tagName, (target.id || ''));
+  console.log('[Mnemox] wired to', target.tagName, (target.id || target.getAttribute('aria-label') || ''));
 
-  // Save prompt text immediately on Enter keydown — ensures it's in storage
-  // before the response comes back and RESPONSE_SCORED fires.
+  // Save prompt text immediately on Enter — before debounce fires
   target.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       var text = (target.value || target.innerText || target.textContent || '').trim();
       if (text.length > 1) {
-        safeChrome(function () {
-          chrome.storage.local.set({ lastPromptText: text });
-        });
+        safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
       }
     }
   });
 
+  // Score prompt 500ms after typing stops (was 1500ms)
   var debouncedScore = debounce(function () {
     var text = (target.value || target.innerText || target.textContent || '').trim();
     if (text.length < 2) return;
-    safeChrome(function () {
-      chrome.storage.local.set({ lastPromptText: text });
-    });
+    safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
-  }, 1500);
+  }, 500);
 
   target.addEventListener('input', debouncedScore);
   target.addEventListener('keyup', debouncedScore);
@@ -92,19 +95,16 @@ function wireObserver() {
   }
 }
 
-// Save last result to storage so popup can read it
 window.addEventListener('message', function (event) {
-  if (event.source !== window) return;
-  if (!event.data) return;
+  if (event.source !== window || !event.data) return;
 
   if (event.data.type === 'MNEMOX_RESULT') {
     safeChrome(function () {
-      chrome.storage.local.get(['sessionCount'], function(data) {
-        var count = (data.sessionCount || 0) + 1;
+      chrome.storage.local.get(['sessionCount'], function (data) {
         chrome.storage.local.set({
-          lastResult: event.data.result,
-          lastUrl: window.location.hostname,
-          sessionCount: count
+          lastResult:   event.data.result,
+          lastUrl:      window.location.hostname,
+          sessionCount: (data.sessionCount || 0) + 1,
         });
       });
     });
@@ -129,13 +129,11 @@ window.addEventListener('message', function (event) {
   }
 });
 
-// Adapter health-check on page load
-function runHealthCheck() {
-  window.postMessage({ type: 'MNEMOX_HEALTHCHECK' }, '*');
-}
-
+// Single boot timer (was two competing timers at 800ms + 1200ms)
+setTimeout(wireObserver, 400);
 window.addEventListener('load', function () {
-  setTimeout(wireObserver, 800);
-  setTimeout(runHealthCheck, 1500);
+  if (!wired) wireObserver();
+  setTimeout(function () {
+    window.postMessage({ type: 'MNEMOX_HEALTHCHECK' }, '*');
+  }, 800); // was 1500ms
 });
-setTimeout(wireObserver, 1200);
