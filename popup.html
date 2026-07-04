@@ -76,8 +76,17 @@
     </div>
   </div>
 
+  <div id="trace-toggle-card" class="card">
+    <div class="card-label">Cloud Traces (optional)</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <span style="font-size:11px;color:#AAA;">Send prompt &amp; response text to the Traces dashboard</span>
+      <input type="checkbox" id="trace-toggle" style="flex:0 0 auto;width:16px;height:16px;">
+    </div>
+    <div id="trace-toggle-status" style="font-size:10px;color:#888;margin-top:6px;">Off — nothing leaves your browser</div>
+  </div>
+
   <div class="footer" style="display:flex;align-items:center;justify-content:space-between;">
-    <span class="badge-local">100% Local - No API</span>
+    <span class="badge-local">Local scoring - No API</span>
     <button id="traces-footer-btn" style="background:none;border:none;color:#A569BD;font-size:10px;cursor:pointer;padding:2px 4px;">📊 Traces</button>
   </div>
 

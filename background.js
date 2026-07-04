@@ -8,7 +8,10 @@ const FLAG_DEFAULTS = {
   PROMPT_COACHING: true,
   PAYWALL:         false,
   TRUST_SCORING:   true,
-  TRACE_LOGGING:   true,
+  // Sending prompt/response text to the Mnemox backend for the Traces
+  // dashboard is opt-in only. Users must explicitly enable this from the
+  // popup before any conversation text leaves the browser.
+  TRACE_LOGGING:   false,
 };
 
 function getFlag(key, callback) {
