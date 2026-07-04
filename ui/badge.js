@@ -90,6 +90,12 @@ var MnemoxBadge = (function () {
   return { inject: inject, update: update, hide: hide, show: show };
 })();
 
-// Auto-inject so the badge is always visible on supported pages,
-// even before the first prompt is scored.
+// Auto-inject so the badge is always visible on supported pages.
+// Restore last cached score so badge isn't blank after SPA navigation.
 MnemoxBadge.inject();
+(function () {
+  try {
+    var cached = localStorage.getItem('__mnemox_last_result');
+    if (cached) MnemoxBadge.update(JSON.parse(cached));
+  } catch (e) {}
+})();

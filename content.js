@@ -68,30 +68,39 @@ function wireObserver() {
   wired = true;
   console.log('[Mnemox] wired to', target.tagName, (target.id || target.getAttribute('aria-label') || ''));
 
-  // Save prompt text immediately on Enter — before debounce fires
-  target.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      var text = (target.value || target.innerText || target.textContent || '').trim();
-      if (text.length > 1) {
-        safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
-      }
-    }
-  });
+  function getText() {
+    return (target.value || target.innerText || target.textContent || '').trim();
+  }
 
-  // Score prompt 500ms after typing stops (was 1500ms)
+  // Eagerly save prompt text on every change (no debounce) so it's
+  // always current regardless of how/when the user submits.
+  function saveText() {
+    var text = getText();
+    if (text.length > 1) {
+      safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
+    }
+  }
+
+  // Scoring: debounced so we don't score every keystroke
   var debouncedScore = debounce(function () {
-    var text = (target.value || target.innerText || target.textContent || '').trim();
+    var text = getText();
     if (text.length < 2) return;
-    safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
   }, 500);
 
-  target.addEventListener('input', debouncedScore);
-  target.addEventListener('keyup', debouncedScore);
+  function onInput() { saveText(); debouncedScore(); }
 
+  target.addEventListener('input',  onInput);
+  target.addEventListener('keyup',  onInput);
+  // keydown: capture text right before Enter clears the field
+  target.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) saveText();
+  });
+
+  // Watch contenteditable mutations (paste, programmatic updates)
   if (target.getAttribute('contenteditable')) {
-    var observer = new MutationObserver(debouncedScore);
-    observer.observe(target, { childList: true, subtree: true, characterData: true });
+    var promptObserver = new MutationObserver(onInput);
+    promptObserver.observe(target, { childList: true, subtree: true, characterData: true });
   }
 }
 

@@ -30,6 +30,8 @@
 
       if (typeof MnemoxBadge !== 'undefined') {
         MnemoxBadge.update(result);
+        // Cache last result so badge can restore it after SPA nav re-injection
+        try { localStorage.setItem('__mnemox_last_result', JSON.stringify(result)); } catch(e) {}
       }
 
       window.postMessage({ type: 'MNEMOX_RESULT', result: result }, '*');
