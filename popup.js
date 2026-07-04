@@ -77,6 +77,8 @@ function openTraces() {
   chrome.tabs.create({ url: chrome.runtime.getURL('traces.html') });
 }
 
+document.getElementById('traces-btn').addEventListener('click', openTraces);
+
 chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
   render(res.lastResult, res.lastUrl, res.sessionCount);
   renderTrust(res.lastTrustResult);
