@@ -101,9 +101,21 @@ function wireObserver() {
 
   target.addEventListener('input',  onInput);
   target.addEventListener('keyup',  onInput);
-  // keydown: grab text right before Enter might clear the field
+  // keydown: score immediately on Enter instead of waiting for the debounce.
+  // Bug fixed 2026-07-05: for short prompts sent quickly, the 500ms debounce
+  // timer was still pending when the platform cleared the input on submit —
+  // it then fired ~500ms later against an EMPTY box, silently no-opped
+  // (text.length < 2 guard), and no score was ever posted for that prompt.
+  // Scoring synchronously here, with text captured before any clearing can
+  // happen, guarantees a score for fast/short sends too.
   target.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) saveText();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      var text = getText();
+      if (text.length > 1) {
+        safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
+        window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
+      }
+    }
   });
 
   // Disconnect previous MutationObserver if re-wiring after SPA nav
