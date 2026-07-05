@@ -84,11 +84,17 @@ function wireObserver() {
   if (wired) return;
 
   var target = null;
+  var matchedSelector = null;
   for (var i = 0; i < INPUT_SELECTORS.length; i++) {
     var el = document.querySelector(INPUT_SELECTORS[i]);
-    if (el) { target = el; break; }
+    if (el) { target = el; matchedSelector = INPUT_SELECTORS[i]; break; }
   }
-  if (!target) { setTimeout(wireObserver, 500); return; }
+  if (!target) {
+    console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 500ms');
+    setTimeout(wireObserver, 500);
+    return;
+  }
+  console.log('[Mnemox][debug] wireObserver: matched selector', matchedSelector);
 
   wired = true;
   // Bug fixed 2026-07-05: on heavier SPAs (Gemini/Angular) the input can
@@ -116,7 +122,11 @@ function wireObserver() {
   // Score prompt 500ms after typing stops
   var debouncedScore = debounce(function () {
     var text = getText();
-    if (text.length < 2) return;
+    if (text.length < 2) {
+      console.log('[Mnemox][debug] debouncedScore: text too short/empty (' + text.length + ' chars), not posting MNEMOX_SCORE');
+      return;
+    }
+    console.log('[Mnemox][debug] debouncedScore: posting MNEMOX_SCORE, length=' + text.length);
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
   }, 500);
 
@@ -135,6 +145,7 @@ function wireObserver() {
     if (e.key === 'Enter' && !e.shiftKey) {
       var text = getText();
       if (text.length > 1) {
+        console.log('[Mnemox][debug] Enter keydown: posting MNEMOX_SCORE, length=' + text.length);
         safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
         window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
       }
@@ -168,6 +179,7 @@ window.addEventListener('message', function (event) {
   if (event.source !== window || !event.data) return;
 
   if (event.data.type === 'MNEMOX_RESULT') {
+    console.log('[Mnemox][debug] content.js received MNEMOX_RESULT, score=' + (event.data.result && event.data.result.score) + ', saving to storage');
     safeChrome(function () {
       chrome.storage.local.get(['sessionCount'], function (data) {
         chrome.storage.local.set({
