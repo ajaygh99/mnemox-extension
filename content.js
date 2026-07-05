@@ -231,7 +231,12 @@ bootObserver = new MutationObserver(function () {
   if (wired) { bootObserver.disconnect(); bootObserver = null; return; }
   wireObserver();
 });
-bootObserver.observe(document.documentElement, { childList: true, subtree: true });
+// attributes:true added 2026-07-05 — childList alone only catches NEW nodes
+// appearing. Some SPAs render the input div early but only add
+// contenteditable="true" (or similar) to it slightly later, which is an
+// attribute change on an EXISTING node, not a new one, and childList-only
+// would miss it — leaving the very first prompt on a fresh tab unwired.
+bootObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable', 'role', 'aria-label', 'data-placeholder', 'class'] });
 
 window.addEventListener('load', function () {
   if (!wired) wireObserver();
