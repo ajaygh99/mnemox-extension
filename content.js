@@ -55,6 +55,11 @@ var INPUT_SELECTORS = [
   'div[contenteditable="true"][data-placeholder]',
   'div[contenteditable="true"][role="textbox"]',
   '.ProseMirror[contenteditable="true"]',
+  // Gemini — Quill editor, has neither aria-label nor role=textbox, so it fell
+  // through to the risky last-resort catch-all below and could silently wire
+  // to the wrong contenteditable element on the page. Matches adapters/gemini.js.
+  '.ql-editor[contenteditable="true"]',
+  '.ql-editor',
   // Generic contenteditable with aria-label (many platforms)
   'div[contenteditable="true"][aria-label]',
   // Generic textarea
