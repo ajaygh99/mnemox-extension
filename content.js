@@ -23,6 +23,16 @@ function injectScript(file) {
   try {
     var s = document.createElement('script');
     s.src = chrome.runtime.getURL(file);
+    // Bug fixed 2026-07-05: without async=false, dynamically-inserted
+    // <script> tags execute in whatever order they finish downloading, NOT
+    // the order injectScript() was called in. If ui/pageWorld.js executed
+    // before scoring/rules.js finished loading, scorePrompt was still
+    // undefined when a MNEMOX_SCORE message arrived — pageWorld.js's guard
+    // (`typeof scorePrompt !== 'function'`) silently returned with no error,
+    // no log, and no score, on ANY platform, unpredictably. async=false
+    // forces browsers to execute these in strict insertion order, same as
+    // normal parser-inserted scripts.
+    s.async = false;
     s.onload = function () { this.remove(); };
     (document.head || document.documentElement).appendChild(s);
   } catch (e) { /* context gone */ }
