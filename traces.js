@@ -46,10 +46,14 @@ function gradeLabel(score) {
 function renderTraces() {
   var list = document.getElementById('traces-list');
   var statsBar = document.getElementById('stats-bar');
+  // Bug fixed 2026-07-05: traces store platform under `tool_name` (see the
+  // render loop below), but this filter only checked `t.platform`, which is
+  // always empty — so every specific filter button matched nothing while
+  // "All" (which skips this check) worked fine.
   var filtered = currentFilter === 'all'
     ? allTraces
     : allTraces.filter(function (t) {
-        var p = (t.platform || '').toLowerCase();
+        var p = (t.tool_name || t.platform || '').toLowerCase();
         return p.indexOf(currentFilter) !== -1;
       });
 
