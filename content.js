@@ -46,6 +46,7 @@ injectScript('response-reader.js');
 
 var wired = false;
 var promptObserver = null; // track MutationObserver so we can disconnect on re-wire
+var bootObserver = null; // watches for the input mounting late (see startBootObserver)
 
 // Ordered by platform specificity — narrow selectors first
 var INPUT_SELECTORS = [
@@ -80,6 +81,13 @@ function wireObserver() {
   if (!target) { setTimeout(wireObserver, 500); return; }
 
   wired = true;
+  // Bug fixed 2026-07-05: on heavier SPAs (Gemini/Angular) the input can
+  // mount later than our fixed 400ms/500ms retry timers. If a fast typist
+  // started their FIRST prompt before wireObserver ever attached, those
+  // keystrokes were captured by nothing — no listener existed yet, so there
+  // was nothing for the Enter-key fix to hook into either. Once wired,
+  // the fallback DOM watcher below is no longer needed.
+  if (bootObserver) { bootObserver.disconnect(); bootObserver = null; }
   console.log('[Mnemox] wired to', target.tagName,
     (target.id || target.getAttribute('aria-label') || target.getAttribute('data-placeholder') || ''));
 
@@ -192,8 +200,17 @@ window.addEventListener('message', function (event) {
   }
 });
 
-// Single boot timer
+// Boot: try immediately (in case the input already exists), on a short
+// delay, AND watch the DOM directly as a fallback — fixed timers alone can
+// lose the race against slow-mounting SPA inputs (see wireObserver comment).
+wireObserver();
 setTimeout(wireObserver, 400);
+bootObserver = new MutationObserver(function () {
+  if (wired) { bootObserver.disconnect(); bootObserver = null; return; }
+  wireObserver();
+});
+bootObserver.observe(document.documentElement, { childList: true, subtree: true });
+
 window.addEventListener('load', function () {
   if (!wired) wireObserver();
   setTimeout(function () {
