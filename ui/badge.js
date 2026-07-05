@@ -13,6 +13,22 @@ var MnemoxBadge = (function () {
     return { bg: '#922B21', text: '#FFFFFF', label: 'Poor' };
   }
 
+  // Small DOM-builder helper — used instead of innerHTML so this survives
+  // strict CSP / Trusted Types policies. Bug fixed 2026-07-05: Gemini
+  // enforces Trusted Types, which throws on any `el.innerHTML = "<string>"`
+  // assignment. That throw happened inside inject(), which is called at the
+  // top of update() — so the exception aborted the ENTIRE scoring handler in
+  // pageWorld.js before it could even post the result back to content.js.
+  // Net effect: no badge AND no popup score, on Gemini only (other platforms
+  // don't enforce Trusted Types, so it was invisible there).
+  function mk(tag, style, id, text) {
+    var e = document.createElement(tag);
+    if (id) e.id = id;
+    if (style) e.setAttribute('style', style);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
   function inject() {
     if (document.getElementById(BADGE_ID)) return;
 
@@ -27,18 +43,19 @@ var MnemoxBadge = (function () {
       'pointer-events:auto'
     ].join(';'));
 
-    badge.innerHTML = [
-      '<div style="font-size:11px;opacity:0.7;margin-bottom:4px;letter-spacing:0.5px;">MNEMOX</div>',
-      '<div id="mnemox-score-line" style="display:flex;align-items:center;gap:8px;">',
-      '  <span id="mnemox-score-num" style="font-size:22px;font-weight:bold;">--</span>',
-      '  <div>',
-      '    <div id="mnemox-grade" style="font-size:11px;font-weight:bold;"></div>',
-      '    <div id="mnemox-label" style="font-size:10px;opacity:0.8;"></div>',
-      '  </div>',
-      '</div>',
-      '<div id="mnemox-tokens" style="font-size:10px;margin-top:4px;opacity:0.7;"></div>',
-      '<div style="font-size:9px;margin-top:5px;opacity:0.5;">Click for details</div>'
-    ].join('');
+    badge.appendChild(mk('div', 'font-size:11px;opacity:0.7;margin-bottom:4px;letter-spacing:0.5px;', null, 'MNEMOX'));
+
+    var scoreLine = mk('div', 'display:flex;align-items:center;gap:8px;', 'mnemox-score-line');
+    var scoreNum  = mk('span', 'font-size:22px;font-weight:bold;', 'mnemox-score-num', '--');
+    var infoBox   = document.createElement('div');
+    infoBox.appendChild(mk('div', 'font-size:11px;font-weight:bold;', 'mnemox-grade'));
+    infoBox.appendChild(mk('div', 'font-size:10px;opacity:0.8;', 'mnemox-label'));
+    scoreLine.appendChild(scoreNum);
+    scoreLine.appendChild(infoBox);
+    badge.appendChild(scoreLine);
+
+    badge.appendChild(mk('div', 'font-size:10px;margin-top:4px;opacity:0.7;', 'mnemox-tokens'));
+    badge.appendChild(mk('div', 'font-size:9px;margin-top:5px;opacity:0.5;', null, 'Click for details'));
 
     badge.addEventListener('click', function () {
       if (typeof MnemoxCoach !== 'undefined') {

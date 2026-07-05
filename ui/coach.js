@@ -35,6 +35,21 @@ var MnemoxCoach = (function () {
     return '#EC7063';
   }
 
+  // Small DOM-builder helper — used instead of innerHTML so this survives
+  // strict CSP / Trusted Types policies (e.g. Gemini). See ui/badge.js for
+  // the full explanation — bug fixed 2026-07-05.
+  function mk(tag, style, id, text) {
+    var e = document.createElement(tag);
+    if (id) e.id = id;
+    if (style) e.setAttribute('style', style);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function clearEl(el) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+  }
+
   function inject() {
     if (document.getElementById(PANEL_ID)) return;
 
@@ -58,30 +73,31 @@ var MnemoxCoach = (function () {
       'transition:right 0.3s ease','overflow-y:auto','padding:20px'
     ].join(';'));
 
-    panel.innerHTML = [
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">',
-      '  <span style="font-size:15px;font-weight:bold;color:#5DADE2;letter-spacing:1px;">MNEMOX</span>',
-      '  <button id="mnemox-coach-close" style="background:none;border:none;color:#AAA;font-size:18px;cursor:pointer;">x</button>',
-      '</div>',
-      '<div id="mnemox-coach-summary" style="background:#1A2B4A;border-radius:8px;padding:12px;margin-bottom:16px;">',
-      '  <div style="font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Prompt Score</div>',
-      '  <div style="display:flex;align-items:center;gap:12px;">',
-      '    <span id="mnemox-coach-score" style="font-size:36px;font-weight:bold;color:#5DADE2;">--</span>',
-      '    <div>',
-      '      <div id="mnemox-coach-grade" style="font-size:14px;font-weight:bold;"></div>',
-      '      <div id="mnemox-coach-tokens" style="font-size:11px;color:#AAA;margin-top:2px;"></div>',
-      '    </div>',
-      '  </div>',
-      '</div>',
-      '<div style="font-size:10px;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Rule Breakdown</div>',
-      '<div id="mnemox-coach-rules"></div>',
-      '<div id="mnemox-coach-tips" style="margin-top:16px;"></div>',
-      '<div id="mnemox-coach-suggestion" style="margin-top:16px;display:none;">',
-      '  <div style="font-size:10px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Improved Prompt</div>',
-      '  <div id="mnemox-coach-suggestion-text" style="background:#1A2B4A;border-radius:6px;padding:10px;font-size:11px;color:#D5F5E3;line-height:1.6;white-space:pre-wrap;word-break:break-word;"></div>',
-      '  <button id="mnemox-coach-copy" style="margin-top:8px;width:100%;background:#1A5E35;border:none;color:#FFFFFF;padding:8px;border-radius:6px;cursor:pointer;font-size:12px;">Copy Improved Prompt</button>',
-      '</div>'
-    ].join('');
+    var headerRow = mk('div', 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;');
+    headerRow.appendChild(mk('span', 'font-size:15px;font-weight:bold;color:#5DADE2;letter-spacing:1px;', null, 'MNEMOX'));
+    headerRow.appendChild(mk('button', 'background:none;border:none;color:#AAA;font-size:18px;cursor:pointer;', 'mnemox-coach-close', 'x'));
+    panel.appendChild(headerRow);
+
+    var summary = mk('div', 'background:#1A2B4A;border-radius:8px;padding:12px;margin-bottom:16px;', 'mnemox-coach-summary');
+    summary.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;', null, 'Prompt Score'));
+    var scoreRow = mk('div', 'display:flex;align-items:center;gap:12px;');
+    var scoreInfo = document.createElement('div');
+    scoreInfo.appendChild(mk('div', 'font-size:14px;font-weight:bold;', 'mnemox-coach-grade'));
+    scoreInfo.appendChild(mk('div', 'font-size:11px;color:#AAA;margin-top:2px;', 'mnemox-coach-tokens'));
+    scoreRow.appendChild(mk('span', 'font-size:36px;font-weight:bold;color:#5DADE2;', 'mnemox-coach-score', '--'));
+    scoreRow.appendChild(scoreInfo);
+    summary.appendChild(scoreRow);
+    panel.appendChild(summary);
+
+    panel.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;', null, 'Rule Breakdown'));
+    panel.appendChild(mk('div', null, 'mnemox-coach-rules'));
+    panel.appendChild(mk('div', 'margin-top:16px;', 'mnemox-coach-tips'));
+
+    var suggestionBox = mk('div', 'margin-top:16px;display:none;', 'mnemox-coach-suggestion');
+    suggestionBox.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;', null, 'Improved Prompt'));
+    suggestionBox.appendChild(mk('div', 'background:#1A2B4A;border-radius:6px;padding:10px;font-size:11px;color:#D5F5E3;line-height:1.6;white-space:pre-wrap;word-break:break-word;', 'mnemox-coach-suggestion-text'));
+    suggestionBox.appendChild(mk('button', 'margin-top:8px;width:100%;background:#1A5E35;border:none;color:#FFFFFF;padding:8px;border-radius:6px;cursor:pointer;font-size:12px;', 'mnemox-coach-copy', 'Copy Improved Prompt'));
+    panel.appendChild(suggestionBox);
 
     document.body.appendChild(panel);
 
@@ -94,7 +110,8 @@ var MnemoxCoach = (function () {
     if (!rulesEl) return;
 
     var keys = Object.keys(dims);
-    var html = '';
+    clearEl(rulesEl);
+
     for (var i = 0; i < keys.length; i++) {
       var id   = keys[i];
       var dim  = dims[id];
@@ -102,27 +119,30 @@ var MnemoxCoach = (function () {
       var pct  = (dim && dim.max) ? Math.round((dim.score / dim.max) * 100) : Math.round(dim * 100);
       var color = getBarColor(pct);
       var isWeak = weak && weak.indexOf(name) >= 0;
-      html += '<div style="margin-bottom:10px;">' +
-        '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">' +
-        '<span style="color:' + (isWeak ? '#F0B27A' : '#CCC') + ';">' + name + (isWeak ? ' *' : '') + '</span>' +
-        '<span style="color:' + color + ';">' + pct + '%</span></div>' +
-        '<div style="background:#1A2B4A;border-radius:4px;height:6px;">' +
-        '<div style="background:' + color + ';width:' + pct + '%;height:6px;border-radius:4px;transition:width 0.4s;"></div>' +
-        '</div></div>';
-    }
-    rulesEl.innerHTML = html;
 
-    var tipsHtml = '';
+      var row = mk('div', 'margin-bottom:10px;');
+      var labelRow = mk('div', 'display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;');
+      labelRow.appendChild(mk('span', 'color:' + (isWeak ? '#F0B27A' : '#CCC') + ';', null, name + (isWeak ? ' *' : '')));
+      labelRow.appendChild(mk('span', 'color:' + color + ';', null, pct + '%'));
+
+      var barTrack = mk('div', 'background:#1A2B4A;border-radius:4px;height:6px;');
+      barTrack.appendChild(mk('div', 'background:' + color + ';width:' + pct + '%;height:6px;border-radius:4px;transition:width 0.4s;'));
+
+      row.appendChild(labelRow);
+      row.appendChild(barTrack);
+      rulesEl.appendChild(row);
+    }
+
+    clearEl(tipsEl);
     if (weak && weak.length > 0) {
-      tipsHtml += '<div style="font-size:10px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">How to Improve</div>';
+      tipsEl.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;', null, 'How to Improve'));
       for (var j = 0; j < keys.length; j++) {
         var rid = keys[j];
         if (weak.indexOf(RULE_NAMES[rid]) >= 0 && RULE_TIPS[rid]) {
-          tipsHtml += '<div style="background:#1A2B4A;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:#F0B27A;line-height:1.5;">' + RULE_TIPS[rid] + '</div>';
+          tipsEl.appendChild(mk('div', 'background:#1A2B4A;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:#F0B27A;line-height:1.5;', null, RULE_TIPS[rid]));
         }
       }
     }
-    tipsEl.innerHTML = tipsHtml;
   }
 
   function renderSuggestion(suggestion) {
