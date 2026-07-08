@@ -57,6 +57,8 @@ injectScript('response-reader.js');
 var wired = false;
 var promptObserver = null; // track MutationObserver so we can disconnect on re-wire
 var bootObserver = null; // watches for the input mounting late (see startBootObserver)
+var wiredSelectorIndex = Infinity; // priority of the currently-wired selector (lower = better)
+var wireStartTime = Date.now();
 
 // Ordered by platform specificity — narrow selectors first
 var INPUT_SELECTORS = [
@@ -73,37 +75,84 @@ var INPUT_SELECTORS = [
   '.ql-editor',
   // Generic contenteditable with aria-label (many platforms)
   'div[contenteditable="true"][aria-label]',
-  // Generic textarea
+  // Generic textarea — can match decoy/hidden a11y-only inputs that exist in
+  // the DOM before the platform's real editor has mounted. See wireObserver().
   'textarea',
   // Last-resort contenteditable — only matches the FIRST one, so keep at end
   '[contenteditable="true"]',
   'input[type="text"]',
 ];
+// Only index 0 (#prompt-textarea, a globally-unique DOM id) is specific enough
+// to trust immediately. Every other index — including the Claude/Gemini
+// selectors, which are class-based and can theoretically match an unrelated
+// element before the real editor mounts — gets bootObserver's 15s grace
+// window to be superseded by something more specific. See wireObserver().
+var CONFIDENT_SELECTOR_INDEX = 1;
 
 function wireObserver() {
-  if (wired) return;
-
   var target = null;
   var matchedSelector = null;
+  var matchedIndex = -1;
   for (var i = 0; i < INPUT_SELECTORS.length; i++) {
     var el = document.querySelector(INPUT_SELECTORS[i]);
-    if (el) { target = el; matchedSelector = INPUT_SELECTORS[i]; break; }
+    if (el) { target = el; matchedSelector = INPUT_SELECTORS[i]; matchedIndex = i; break; }
   }
   if (!target) {
-    console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 500ms');
-    setTimeout(wireObserver, 500);
+    if (!wired) {
+      console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 500ms');
+      setTimeout(wireObserver, 500);
+    }
     return;
+  }
+
+  // Bug fixed 2026-07-07: wireObserver used to return immediately once ANY
+  // selector matched (`if (wired) return;` at the top). On ChatGPT/Gemini,
+  // the real editor (#prompt-textarea / .ql-editor) can mount AFTER a risky
+  // generic fallback ('textarea' / '[contenteditable="true"]') already
+  // matched some unrelated decoy element present earlier in the DOM (e.g. a
+  // hidden a11y textarea labeled "Chat with ChatGPT"). Once wired to that
+  // decoy, it was PERMANENT — the user's real keystrokes went to an element
+  // nobody was listening to, so prompt scoring silently never fired unless
+  // an unrelated SPA navigation happened to reset `wired` and re-run this
+  // with the real editor now present. Confirmed via console trace: "wired to
+  // TEXTAREA Chat with ChatGPT" fired first, "wired to DIV prompt-textarea"
+  // only fired later after an SPA nav reset — not because the fix worked,
+  // but by accident.
+  // Fix: keep re-checking (via bootObserver, still running below) for a
+  // STRICTLY better (lower-index) selector than whatever we're currently
+  // wired to, and rewire to it if the element is actually different. Once a
+  // non-risky (platform-specific) selector is wired, or 15s have passed,
+  // bootObserver stops re-checking to avoid running forever.
+  if (wired) {
+    if (matchedIndex < wiredSelectorIndex && target !== window.__mnemoxWiredTarget) {
+      console.log('[Mnemox][debug] wireObserver: better selector now available (' + matchedSelector + '), rewiring away from previous match');
+    } else {
+      return;
+    }
   }
   console.log('[Mnemox][debug] wireObserver: matched selector', matchedSelector);
 
   wired = true;
+  wiredSelectorIndex = matchedIndex;
+  window.__mnemoxWiredTarget = target;
   // Bug fixed 2026-07-05: on heavier SPAs (Gemini/Angular) the input can
   // mount later than our fixed 400ms/500ms retry timers. If a fast typist
   // started their FIRST prompt before wireObserver ever attached, those
   // keystrokes were captured by nothing — no listener existed yet, so there
   // was nothing for the Enter-key fix to hook into either. Once wired,
   // the fallback DOM watcher below is no longer needed.
-  if (bootObserver) { bootObserver.disconnect(); bootObserver = null; }
+  //
+  // Bug fixed 2026-07-07: this used to unconditionally disconnect
+  // bootObserver as soon as ANY selector matched. If that first match was a
+  // decoy element caught by a generic fallback, bootObserver was gone and
+  // nothing could ever upgrade to the real editor once it mounted. Now
+  // bootObserver is only torn down once we've matched the single
+  // highest-confidence selector (index < CONFIDENT_SELECTOR_INDEX) — or
+  // after 15s, so it doesn't run forever if we really are stuck on a
+  // fallback.
+  if (matchedIndex < CONFIDENT_SELECTOR_INDEX || Date.now() - wireStartTime > 15000) {
+    if (bootObserver) { bootObserver.disconnect(); bootObserver = null; }
+  }
   console.log('[Mnemox] wired to', target.tagName,
     (target.id || target.getAttribute('aria-label') || target.getAttribute('data-placeholder') || ''));
 
@@ -228,7 +277,14 @@ window.addEventListener('message', function (event) {
 wireObserver();
 setTimeout(wireObserver, 400);
 bootObserver = new MutationObserver(function () {
-  if (wired) { bootObserver.disconnect(); bootObserver = null; return; }
+  // Bug fixed 2026-07-07: this used to stop calling wireObserver() (and
+  // disconnect itself) the instant `wired` became true, no matter which
+  // selector matched. That's what let a decoy element wired via a risky
+  // fallback selector stand forever — bootObserver gave up watching before
+  // the real editor even had a chance to mount. wireObserver() now owns the
+  // decision of when it's safe to stop (see its RISKY_SELECTOR_INDEX / 15s
+  // logic), so just keep calling it here; it no-ops once nothing better is
+  // available or bootObserver has already been torn down.
   wireObserver();
 });
 // attributes:true added 2026-07-05 — childList alone only catches NEW nodes
@@ -252,6 +308,16 @@ window.addEventListener('load', function () {
     if (location.href === lastHref) return;
     lastHref = location.href;
     wired = false;
+    wiredSelectorIndex = Infinity;
+    wireStartTime = Date.now();
+    window.__mnemoxWiredTarget = null;
+    // Re-create bootObserver if a previous wire (on the old page) already
+    // tore it down — the new page's editor needs the same late-mount /
+    // decoy-upgrade protection wireObserver() provides.
+    if (!bootObserver) {
+      bootObserver = new MutationObserver(function () { wireObserver(); });
+      bootObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable', 'role', 'aria-label', 'data-placeholder', 'class'] });
+    }
     clearTimeout(trustDebounceTimer); // cancel any pending trust score
     setTimeout(function () {
       wireObserver();
