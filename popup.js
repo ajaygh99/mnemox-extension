@@ -84,3 +84,23 @@ chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCo
   render(res.lastResult, res.lastUrl, res.sessionCount);
   renderTrust(res.lastTrustResult);
 });
+
+// Settings toggles for the two opt-in, off-by-default flags (TRACE_LOGGING,
+// MEMORY_CONSISTENCY — see background.js FLAG_DEFAULTS). Neither had any UI
+// before this; the only way to change them was editing chrome.storage.local
+// directly, which meant "opt-in" wasn't actually reachable by users.
+function bindFlagToggle(elId, flagKey, defaultValue) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  chrome.storage.local.get([flagKey], function (res) {
+    el.checked = flagKey in res ? !!res[flagKey] : defaultValue;
+  });
+  el.addEventListener('change', function () {
+    var val = {};
+    val[flagKey] = el.checked;
+    chrome.storage.local.set(val);
+  });
+}
+
+bindFlagToggle('toggle-trace-logging', 'TRACE_LOGGING', false);
+bindFlagToggle('toggle-memory-consistency', 'MEMORY_CONSISTENCY', false);

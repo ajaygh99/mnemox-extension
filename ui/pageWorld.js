@@ -55,6 +55,34 @@
       window.postMessage({ type: 'MNEMOX_RESULT', result: result }, '*');
     }
 
+    // Step 5: route the trust (response quality) score into the coaching
+    // panel. trust.js computes this independently of MNEMOX_SCORE above and
+    // used to only ever reach chrome.storage.local / the popup — the coach
+    // panel never showed it. Wrapped the same way as MnemoxBadge.update
+    // above: a display error here must never block anything else.
+    if (event.data.type === 'MNEMOX_TRUST_RESULT') {
+      if (typeof MnemoxCoach !== 'undefined') {
+        try {
+          MnemoxCoach.updateTrust(event.data.result);
+          try { localStorage.setItem('__mnemox_last_trust_result', JSON.stringify(event.data.result)); } catch (e) {}
+        } catch (trustErr) {
+          console.error('[Mnemox][debug] MnemoxCoach.updateTrust threw:', trustErr);
+        }
+      }
+    }
+
+    // Optional Step 5 memory-alignment result (only sent when the user has
+    // MEMORY_CONSISTENCY enabled — see content.js / background.js).
+    if (event.data.type === 'MNEMOX_MEMORY_ALIGNMENT') {
+      if (typeof MnemoxCoach !== 'undefined') {
+        try {
+          MnemoxCoach.updateMemoryAlignment(event.data.result);
+        } catch (maErr) {
+          console.error('[Mnemox][debug] MnemoxCoach.updateMemoryAlignment threw:', maErr);
+        }
+      }
+    }
+
     if (event.data.type === 'MNEMOX_HEALTHCHECK') {
       var adapterResult = { adapter: 'none', healthy: true };
       if (typeof getAdapterForPage === 'function') {

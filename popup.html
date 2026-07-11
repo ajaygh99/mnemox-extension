@@ -28,7 +28,7 @@
     <span class="logo">MNEMOX</span>
     <div style="display:flex;align-items:center;gap:8px;">
       <button id="traces-btn" style="background:none;border:1px solid #A569BD;color:#A569BD;font-size:10px;cursor:pointer;padding:2px 7px;border-radius:4px;">📊 Traces</button>
-      <span class="version">v1.3.0</span>
+      <span class="version">v1.3.1</span>
     </div>
   </div>
 
@@ -74,6 +74,18 @@
       <span>Last site</span>
       <span id="pop-url" class="stat-val" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">--</span>
     </div>
+  </div>
+
+  <div class="card" style="padding:10px 12px;">
+    <div class="card-label" style="margin-bottom:8px;">Optional (off by default)</div>
+    <label style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:11px;color:#CCC;margin-bottom:10px;cursor:pointer;">
+      <span>Trace logging<br><span style="font-size:9px;color:#666;">Saves prompt/response text to the Traces dashboard</span></span>
+      <input type="checkbox" id="toggle-trace-logging" style="flex-shrink:0;margin-top:2px;">
+    </label>
+    <label style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:11px;color:#CCC;cursor:pointer;">
+      <span>Memory alignment<br><span style="font-size:9px;color:#666;">Sends AI responses to check against your saved memories</span></span>
+      <input type="checkbox" id="toggle-memory-consistency" style="flex-shrink:0;margin-top:2px;">
+    </label>
   </div>
 
   <div class="footer" style="display:flex;align-items:center;justify-content:space-between;">

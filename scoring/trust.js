@@ -128,6 +128,11 @@
     result.tokenEstimate = payload.tokenEstimate;
     result.completedAt   = payload.completedAt;
     result.url           = payload.url;
+    // Bug fixed 2026-07-10: background.js's trace logger already reads
+    // scored.text (see RESPONSE_SCORED handler) but this result object never
+    // set it, so response_text was silently always null in every logged
+    // trace. Also needed locally for the opt-in memory-consistency check.
+    result.text          = payload.text;
 
     window.postMessage({ type: 'MNEMOX_TRUST_RESULT', result: result }, '*');
     console.log('[Mnemox] trust score:', result.trustScore, result.grade, '—', result.quality);

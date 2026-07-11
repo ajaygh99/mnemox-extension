@@ -4,11 +4,25 @@
 const API_BASE = 'https://mnemox-production.up.railway.app';
 
 const FLAG_DEFAULTS = {
-  TOKEN_COUNTER:   true,
-  PROMPT_COACHING: true,
-  PAYWALL:         false,
-  TRUST_SCORING:   true,
-  TRACE_LOGGING:   true,
+  TOKEN_COUNTER:        true,
+  PROMPT_COACHING:      true,
+  PAYWALL:              false,
+  TRUST_SCORING:        true,
+  // Bug fixed 2026-07-10: this defaulted to true, silently sending every
+  // prompt+response pair to the Railway backend on install even though
+  // manifest.json's description and STORE_LISTING.md's privacy policy both
+  // promise "zero external API calls" / "no data leaves your browser". The
+  // master plan (Section 10, immediate action #5) explicitly specified both
+  // TRACE_LOGGING and TRUST_SCORING should ship "false by default" — this
+  // got flipped to true during dev (see commit 36c7e5e) and never reverted.
+  // Restoring the documented default; users can opt in from the popup.
+  TRACE_LOGGING:        false,
+  // New: Step 5 (MnemoxTrust) "memory consistency" signal — compares an AI
+  // response against the user's saved memories via the backend's vector
+  // search. Off by default for the same reason as TRACE_LOGGING above: it
+  // sends response text to an external server, which must be opt-in to
+  // keep the extension's local-by-default privacy claim true.
+  MEMORY_CONSISTENCY:  false,
 };
 
 function getFlag(key, callback) {
@@ -147,6 +161,54 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
           });
 
           sendResponse({ ok: true, logged: true });
+        });
+      });
+      return true;
+    }
+
+    // ── Memory consistency check — Step 5, gated by MEMORY_CONSISTENCY flag ──
+    // (opt-in, off by default). Compares AI response text against the
+    // user's saved memories via the backend's vector-search endpoint. This
+    // is the only path in the extension that sends response text to an
+    // external server, so it never runs unless the user has turned the
+    // setting on in the popup.
+    case 'MEMORY_CHECK': {
+      getFlag('MEMORY_CONSISTENCY', function(enabled) {
+        if (!enabled) { sendResponse({ ok: true, enabled: false }); return; }
+
+        var text = (message.text || '').slice(0, 2000);
+        if (!text) { sendResponse({ ok: true, enabled: true, available: false, reason: 'no text' }); return; }
+
+        chrome.storage.local.get(['mnemox_uuid'], function(data) {
+          fetch(API_BASE + '/search', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ query: text, user_id: data.mnemox_uuid || null, limit: 5 }),
+          })
+            .then(function(r) {
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.json();
+            })
+            .then(function(json) {
+              // Backend response shape isn't pinned down from the extension
+              // side (mcp/lib/memory.js is the only other caller and just
+              // passes the body straight through) — handle the reasonable
+              // variants defensively instead of assuming one and throwing.
+              var matches = Array.isArray(json)          ? json
+                          : Array.isArray(json.results)  ? json.results
+                          : Array.isArray(json.memories) ? json.memories
+                          : Array.isArray(json.matches)  ? json.matches
+                          : [];
+              var scores = matches
+                .map(function(m) { return typeof m.score === 'number' ? m.score : (typeof m.similarity === 'number' ? m.similarity : null); })
+                .filter(function(s) { return s !== null; });
+              var avg = scores.length ? scores.reduce(function(a, b) { return a + b; }, 0) / scores.length : null;
+              sendResponse({ ok: true, enabled: true, available: matches.length > 0, count: matches.length, avgSimilarity: avg });
+            })
+            .catch(function(err) {
+              console.warn('[Mnemox] memory check failed (silent):', err.message);
+              sendResponse({ ok: true, enabled: true, available: false, error: err.message });
+            });
         });
       });
       return true;

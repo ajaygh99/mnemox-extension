@@ -35,6 +35,13 @@ var MnemoxCoach = (function () {
     return '#EC7063';
   }
 
+  // Distinct purple scale for trust/response-quality grades — mirrors
+  // popup.js's trustGradeColor so the two surfaces read consistently.
+  function getTrustGradeColor(grade) {
+    var map = { A: '#A569BD', B: '#7D3C98', C: '#D7BDE2', D: '#E59866', F: '#EC7063' };
+    return map[grade] || '#AAA';
+  }
+
   // Small DOM-builder helper — used instead of innerHTML so this survives
   // strict CSP / Trusted Types policies (e.g. Gemini). See ui/badge.js for
   // the full explanation — bug fixed 2026-07-05.
@@ -98,6 +105,29 @@ var MnemoxCoach = (function () {
     suggestionBox.appendChild(mk('div', 'background:#1A2B4A;border-radius:6px;padding:10px;font-size:11px;color:#D5F5E3;line-height:1.6;white-space:pre-wrap;word-break:break-word;', 'mnemox-coach-suggestion-text'));
     suggestionBox.appendChild(mk('button', 'margin-top:8px;width:100%;background:#1A5E35;border:none;color:#FFFFFF;padding:8px;border-radius:6px;cursor:pointer;font-size:12px;', 'mnemox-coach-copy', 'Copy Improved Prompt'));
     panel.appendChild(suggestionBox);
+
+    // ── Step 5: Response Quality (MnemoxTrust) — hidden until the first AI
+    // response on the page has been scored. Was previously computed but
+    // only ever shown in the popup, never here.
+    var trustSection = mk('div', 'margin-top:20px;display:none;border-top:1px solid #1A2B4A;padding-top:16px;', 'mnemox-coach-trust-section');
+    trustSection.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;', null, 'Response Quality (MnemoxTrust)'));
+
+    var trustSummary = mk('div', 'background:#1A2B4A;border-radius:8px;padding:12px;margin-bottom:10px;');
+    var trustScoreRow = mk('div', 'display:flex;align-items:center;gap:12px;');
+    var trustInfo = document.createElement('div');
+    trustInfo.appendChild(mk('div', 'font-size:14px;font-weight:bold;', 'mnemox-coach-trust-grade'));
+    trustInfo.appendChild(mk('div', 'font-size:11px;color:#AAA;margin-top:2px;', 'mnemox-coach-trust-quality'));
+    trustScoreRow.appendChild(mk('span', 'font-size:30px;font-weight:bold;color:#A569BD;', 'mnemox-coach-trust-score', '--'));
+    trustScoreRow.appendChild(trustInfo);
+    trustSummary.appendChild(trustScoreRow);
+    trustSection.appendChild(trustSummary);
+    trustSection.appendChild(mk('div', null, 'mnemox-coach-trust-signals'));
+
+    // Optional — only populated when the user has MEMORY_CONSISTENCY on.
+    var alignBox = mk('div', 'margin-top:10px;display:none;background:#1A2B4A;border-radius:6px;padding:10px;font-size:11px;color:#D5F5E3;line-height:1.5;', 'mnemox-coach-memory-alignment');
+    trustSection.appendChild(alignBox);
+
+    panel.appendChild(trustSection);
 
     document.body.appendChild(panel);
 
@@ -167,6 +197,86 @@ var MnemoxCoach = (function () {
     }
   }
 
+  function renderTrustSignals(signals) {
+    var el = document.getElementById('mnemox-coach-trust-signals');
+    if (!el || !signals) return;
+    clearEl(el);
+
+    var keys = Object.keys(signals);
+    for (var i = 0; i < keys.length; i++) {
+      var sig = signals[keys[i]];
+      var pct = (sig && sig.max) ? Math.round((sig.score / sig.max) * 100) : 0;
+      var color = getBarColor(pct);
+
+      var row = mk('div', 'margin-bottom:8px;');
+      var labelRow = mk('div', 'display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;');
+      labelRow.appendChild(mk('span', 'color:#CCC;text-transform:capitalize;', null, keys[i]));
+      labelRow.appendChild(mk('span', 'color:' + color + ';', null, pct + '%'));
+
+      var barTrack = mk('div', 'background:#0F1C30;border-radius:4px;height:5px;');
+      barTrack.appendChild(mk('div', 'background:' + color + ';width:' + pct + '%;height:5px;border-radius:4px;'));
+
+      row.appendChild(labelRow);
+      row.appendChild(barTrack);
+      row.appendChild(mk('div', 'font-size:10px;color:#888;margin-top:2px;', null, (sig && sig.message) || ''));
+      el.appendChild(row);
+    }
+  }
+
+  // Step 5 (MnemoxTrust) — renders the AAA response-quality score computed
+  // by scoring/trust.js. Called from ui/pageWorld.js whenever a
+  // MNEMOX_TRUST_RESULT arrives; independent of update() above, which only
+  // ever handles the prompt score.
+  function updateTrust(tr) {
+    inject();
+    if (!tr || tr.trustScore == null) return;
+
+    var section = document.getElementById('mnemox-coach-trust-section');
+    var scoreEl = document.getElementById('mnemox-coach-trust-score');
+    var gradeEl = document.getElementById('mnemox-coach-trust-grade');
+    var qualEl  = document.getElementById('mnemox-coach-trust-quality');
+
+    if (section) section.style.display = 'block';
+    if (scoreEl) scoreEl.textContent = tr.trustScore;
+    if (gradeEl) {
+      gradeEl.textContent = 'Grade ' + tr.grade;
+      gradeEl.style.color = getTrustGradeColor(tr.grade);
+    }
+    if (qualEl) qualEl.textContent = tr.quality || '';
+    if (tr.signals) renderTrustSignals(tr.signals);
+  }
+
+  // Optional Step 5 signal — only ever called when the user has turned on
+  // MEMORY_CONSISTENCY (opt-in, off by default; see background.js). Kept
+  // deliberately separate from the local trustScore/signals above: vector
+  // similarity to saved memories is a much softer, honesty-scoped signal
+  // (per the master plan's own "no over-promising" rule) and shouldn't be
+  // silently folded into a number that's otherwise 100% locally computed.
+  function updateMemoryAlignment(ma) {
+    var box = document.getElementById('mnemox-coach-memory-alignment');
+    if (!box) return;
+
+    if (!ma || !ma.enabled) { box.style.display = 'none'; return; }
+
+    box.style.display = 'block';
+    clearEl(box);
+    box.appendChild(mk('div', 'font-size:10px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;', null, 'Memory Alignment'));
+
+    if (!ma.available) {
+      box.appendChild(mk('div', null, null, 'No related memories found to compare against.'));
+      return;
+    }
+
+    var pct = ma.avgSimilarity != null ? Math.round(ma.avgSimilarity * 100) : null;
+    var memWord = ma.count === 1 ? 'memory' : 'memories';
+    var msg = pct == null
+      ? ma.count + ' related ' + memWord + ' found.'
+      : pct >= 70
+        ? 'Consistent with ' + ma.count + ' saved ' + memWord + ' (' + pct + '% similarity).'
+        : 'Only ' + pct + '% similarity to ' + ma.count + ' related ' + memWord + ' — may diverge from saved context.';
+    box.appendChild(mk('div', null, null, msg));
+  }
+
   function update(result) {
     inject();
     if (!result || result.empty) return;
@@ -212,5 +322,20 @@ var MnemoxCoach = (function () {
     }
   }
 
-  return { inject: inject, update: update, show: show, hide: hide, toggle: toggle };
+  return {
+    inject: inject, update: update, show: show, hide: hide, toggle: toggle,
+    updateTrust: updateTrust, updateMemoryAlignment: updateMemoryAlignment
+  };
+})();
+
+// Restore the last response-quality score after a hard refresh (same idea
+// as ui/badge.js's own restore block for the prompt score, just for
+// trust — the panel would otherwise show "--" until the next AI response).
+(function () {
+  try {
+    var cachedTrust = localStorage.getItem('__mnemox_last_trust_result');
+    if (cachedTrust && typeof MnemoxCoach !== 'undefined') {
+      MnemoxCoach.updateTrust(JSON.parse(cachedTrust));
+    }
+  } catch (e) {}
 })();

@@ -347,6 +347,44 @@ check('suggester: perfect prompt returns null', () => {
   return result === null || 'expected null, got: ' + result;
 });
 
+// -- STEP 5 - MnemoxTrust: coaching-panel display + memory alignment ---------
+console.log('\n[ Step 5 ] MnemoxTrust — Response Quality in Coach Panel');
+check('trust.js includes response text in result', () => readFile('scoring/trust.js').includes('result.text'));
+check('TRACE_LOGGING defaults to false',       () => /TRACE_LOGGING:\s*false/.test(readFile('background.js')) || 'not false — sends data externally by default');
+check('MEMORY_CONSISTENCY flag defined',       () => readFile('background.js').includes('MEMORY_CONSISTENCY'));
+check('MEMORY_CONSISTENCY defaults to false',  () => /MEMORY_CONSISTENCY:\s*false/.test(readFile('background.js')) || 'not false');
+check('background.js has MEMORY_CHECK handler', () => readFile('background.js').includes("'MEMORY_CHECK'"));
+check('MEMORY_CHECK handler checks the flag before fetching', () => {
+  const s = readFile('background.js');
+  const idx = s.indexOf("case 'MEMORY_CHECK'");
+  return (idx !== -1 && s.slice(idx, idx + 400).includes('MEMORY_CONSISTENCY')) || 'flag not checked';
+});
+check('content.js sends MEMORY_CHECK message', () => readFile('content.js').includes("'MEMORY_CHECK'"));
+check('content.js posts MNEMOX_MEMORY_ALIGNMENT', () => readFile('content.js').includes('MNEMOX_MEMORY_ALIGNMENT'));
+check('pageWorld listens for MNEMOX_TRUST_RESULT', () => readFile('ui/pageWorld.js').includes('MNEMOX_TRUST_RESULT'));
+check('pageWorld calls MnemoxCoach.updateTrust', () => readFile('ui/pageWorld.js').includes('MnemoxCoach.updateTrust'));
+check('pageWorld handles MNEMOX_MEMORY_ALIGNMENT', () => readFile('ui/pageWorld.js').includes('MNEMOX_MEMORY_ALIGNMENT'));
+check('coach.js has updateTrust function',     () => readFile('ui/coach.js').includes('function updateTrust'));
+check('coach.js has updateMemoryAlignment function', () => readFile('ui/coach.js').includes('function updateMemoryAlignment'));
+check('coach.js exposes updateTrust + updateMemoryAlignment', () => {
+  const s = readFile('ui/coach.js');
+  return (s.includes('updateTrust: updateTrust') && s.includes('updateMemoryAlignment: updateMemoryAlignment')) || 'not exposed on MnemoxCoach';
+});
+check('popup.html has opt-in settings toggles', () => {
+  const s = readFile('popup.html');
+  return (s.includes('toggle-trace-logging') && s.includes('toggle-memory-consistency')) || 'missing toggle(s)';
+});
+check('popup.js binds both flag toggles',      () => {
+  const s = readFile('popup.js');
+  return (s.includes("'toggle-trace-logging', 'TRACE_LOGGING'") && s.includes("'toggle-memory-consistency', 'MEMORY_CONSISTENCY'")) || 'toggles not bound';
+});
+check('package.json version matches manifest.json', () => {
+  const pkg = parseJSON('package.json');
+  const man = parseJSON('manifest.json');
+  return pkg.version === man.version || `package.json=${pkg.version} manifest.json=${man.version}`;
+});
+check('.gitignore excludes build zips',        () => readFile('.gitignore').includes('*.zip'));
+
 // -------------------------------------------------------------------------
 console.log('\n==============================');
 console.log(' Results: ' + passed + ' passed, ' + failed + ' failed');

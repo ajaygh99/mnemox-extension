@@ -262,6 +262,17 @@ window.addEventListener('message', function (event) {
         });
       });
     });
+
+    // Optional memory-consistency check (Step 5) — background.js no-ops
+    // immediately unless the user has turned on MEMORY_CONSISTENCY, so this
+    // is cheap to fire on every response. Result only feeds the coach
+    // panel's "Memory Alignment" section, never the local trustScore.
+    safeChrome(function () {
+      chrome.runtime.sendMessage({ type: 'MEMORY_CHECK', text: tr.text || null }, function (mc) {
+        if (chrome.runtime.lastError || !mc || !mc.ok || !mc.enabled) return;
+        window.postMessage({ type: 'MNEMOX_MEMORY_ALIGNMENT', result: mc }, '*');
+      });
+    });
   }
 
   if (event.data.type === 'MNEMOX_HEALTHCHECK_RESULT') {
