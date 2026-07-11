@@ -174,11 +174,20 @@ function wireObserver() {
     }
   }
 
-  // Score prompt 50ms after typing stops (was 500ms — 90% cut). Safe to
-  // push this hard because scoring itself (scoring/rules.js) is a pure,
-  // synchronous, local regex-based computation with no network involved —
-  // the delay here was only ever throttling UI churn, not waiting on any
-  // real external event, so there's no correctness reason to keep it slow.
+  // Score prompt 120ms after typing stops (was 500ms — 76% cut).
+  // Revised 2026-07-11: an earlier pass here cut this all the way to 50ms.
+  // scorePrompt() itself really is cheap, but each fire also triggers
+  // MnemoxBadge.update() -> MnemoxCoach.update() -> a full rebuild of the
+  // 8-row rule-breakdown DOM in the (always-mounted, kept-in-sync-even-
+  // when-hidden) coach panel, plus a fresh MnemoxSuggester.suggest() text
+  // computation, plus the console.log calls below. At 500ms that pipeline
+  // ran once per typing pause; at 50ms it fired on nearly every keystroke
+  // pause during normal typing (confirmed via user report: visible lag
+  // opening/closing the panel, heavy console volume with DevTools open).
+  // 120ms is comfortably under the ~100-150ms human "feels instant"
+  // threshold while cutting the render-pipeline's fire rate by ~4x versus
+  // 50ms — still a large win over the original 500ms without the
+  // main-thread churn.
   var debouncedScore = debounce(function () {
     var text = getText();
     if (text.length < 2) {
@@ -187,7 +196,7 @@ function wireObserver() {
     }
     console.log('[Mnemox][debug] debouncedScore: posting MNEMOX_SCORE, length=' + text.length);
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
-  }, 50);
+  }, 120);
 
   function onInput() { saveText(); debouncedScore(); }
 
