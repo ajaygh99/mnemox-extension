@@ -41,6 +41,11 @@ function getAllFlags(callback) {
 // Cooldown map — prevents duplicate traces when response-reader emits
 // multiple times for the same streaming response (one per DOM mutation burst).
 var traceCooldown = {}; // toolName → timestamp of last logged trace
+// Perf audit 2026-07-11: intentionally NOT cut. This isn't a user-facing
+// latency — it's invisible, backend-side dedup that stops the (opt-in)
+// Traces dashboard from filling with near-duplicate rows and stops
+// unnecessary writes to the user's own backend. Cutting it doesn't make
+// anything feel faster; it would only spam the trace log.
 var TRACE_COOLDOWN_MS = 8000; // ignore repeated RESPONSE_SCORED within 8s per tool
 
 var HOST_MAP = {

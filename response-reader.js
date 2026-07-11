@@ -21,6 +21,21 @@
     return;
   }
 
+  // Perf audit 2026-07-11: intentionally NOT cut further (already tuned
+  // once from 1800/800ms). scheduleEmit() below re-checks isStreaming()
+  // when this timer fires and re-arms itself if still streaming, so for
+  // platforms with an authoritative signal (stopSel button, or Claude's
+  // data-is-streaming attribute) these values mostly affect how fast a
+  // COMPLETE response is detected, not correctness. But Gemini has neither
+  // signal (platform.stopSel is null and it isn't claude.ai), so
+  // isStreaming() always returns false for it — DEBOUNCE_STREAMING is that
+  // platform's ONLY protection against emitting a still-generating response,
+  // via plain DOM-silence debouncing. LLM token streaming commonly has
+  // inter-chunk gaps well into the hundreds of ms (tool calls, network
+  // jitter, "thinking" pauses), so cutting this to a 99% value (~10ms)
+  // would cause Gemini responses to be captured and scored mid-stream,
+  // undermining the whole Response Quality (MnemoxTrust) feature on that
+  // platform. Not worth the tradeoff for a delay the user never watches.
   var DEBOUNCE_STREAMING = 1000; // was 1800ms — wait for stream to finish
   var DEBOUNCE_FAST      = 350;  // was 800ms  — instant/pre-rendered responses
   var MIN_CHARS          = 20;

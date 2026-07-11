@@ -99,8 +99,14 @@ function wireObserver() {
   }
   if (!target) {
     if (!wired) {
-      console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 500ms');
-      setTimeout(wireObserver, 500);
+      // Perf: retry poll tightened 500ms -> 50ms (90% cut). Safe because
+      // bootObserver (MutationObserver) is the real detection mechanism and
+      // reacts synchronously to DOM changes; this timer is only a backup net
+      // for the narrow race before bootObserver attaches, so a tight poll
+      // just means we notice a few ms sooner with negligible extra cost
+      // (one cheap querySelector loop).
+      console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 50ms');
+      setTimeout(wireObserver, 50);
     }
     return;
   }
@@ -168,7 +174,11 @@ function wireObserver() {
     }
   }
 
-  // Score prompt 500ms after typing stops
+  // Score prompt 50ms after typing stops (was 500ms — 90% cut). Safe to
+  // push this hard because scoring itself (scoring/rules.js) is a pure,
+  // synchronous, local regex-based computation with no network involved —
+  // the delay here was only ever throttling UI churn, not waiting on any
+  // real external event, so there's no correctness reason to keep it slow.
   var debouncedScore = debounce(function () {
     var text = getText();
     if (text.length < 2) {
@@ -177,7 +187,7 @@ function wireObserver() {
     }
     console.log('[Mnemox][debug] debouncedScore: posting MNEMOX_SCORE, length=' + text.length);
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
-  }, 500);
+  }, 50);
 
   function onInput() { saveText(); debouncedScore(); }
 
@@ -241,6 +251,16 @@ window.addEventListener('message', function (event) {
   }
 
   // Debounce MNEMOX_RESPONSE so streaming produces exactly ONE trust score
+  //
+  // Perf audit 2026-07-11: deliberately NOT cut alongside the other timers
+  // in this file. response-reader.js already decides when a response is
+  // "done" per-platform (positively checking the platform's own streaming
+  // signal — data-is-streaming / a stop-generating button — where available,
+  // not just DOM silence). This timer is a second, coarser guard on top: it
+  // coalesces multiple genuine MNEMOX_RESPONSE events for the SAME exchange
+  // (e.g. a response that pauses for a tool call, then resumes) into one
+  // trust score. Cutting this to near-zero would defeat that coalescing and
+  // risk scoring a mid-pause, not-actually-finished response as final.
   if (event.data.type === 'MNEMOX_RESPONSE') {
     lastTrustPayload = event.data.payload;
     clearTimeout(trustDebounceTimer);
@@ -285,8 +305,10 @@ window.addEventListener('message', function (event) {
 // Boot: try immediately (in case the input already exists), on a short
 // delay, AND watch the DOM directly as a fallback — fixed timers alone can
 // lose the race against slow-mounting SPA inputs (see wireObserver comment).
+// Perf: 400ms -> 40ms (90% cut) — bootObserver (below) is the real
+// detection path; this is only a redundant early-race safety net.
 wireObserver();
-setTimeout(wireObserver, 400);
+setTimeout(wireObserver, 40);
 bootObserver = new MutationObserver(function () {
   // Bug fixed 2026-07-07: this used to stop calling wireObserver() (and
   // disconnect itself) the instant `wired` became true, no matter which
@@ -307,9 +329,14 @@ bootObserver.observe(document.documentElement, { childList: true, subtree: true,
 
 window.addEventListener('load', function () {
   if (!wired) wireObserver();
+  // Perf: 800ms -> 50ms (94% cut). injectScript() forces async=false so all
+  // page-world scripts (including pageWorld.js's MNEMOX_HEALTHCHECK
+  // listener) finish executing in order well before 'load' fires — this
+  // was a defensive pad, not a wait on any real event, so a small buffer
+  // is enough.
   setTimeout(function () {
     window.postMessage({ type: 'MNEMOX_HEALTHCHECK' }, '*');
-  }, 800);
+  }, 50);
 });
 
 // SPA navigation — reset wired, re-wire textarea, re-inject badge
@@ -330,11 +357,15 @@ window.addEventListener('load', function () {
       bootObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable', 'role', 'aria-label', 'data-placeholder', 'class'] });
     }
     clearTimeout(trustDebounceTimer); // cancel any pending trust score
+    // Perf: 600ms -> 60ms (90% cut). If the new SPA view hasn't finished
+    // rendering yet at 60ms, wireObserver's own now-50ms retry loop (above)
+    // and bootObserver both keep watching, so we recover within tens of ms
+    // regardless — this initial delay no longer needs a large safety margin.
     setTimeout(function () {
       wireObserver();
       injectScript('ui/badge.js');
       injectScript('ui/pageWorld.js');
-    }, 600);
+    }, 60);
   }
   var titleNode = document.querySelector('title');
   if (titleNode) new MutationObserver(onNav).observe(titleNode, { childList: true });

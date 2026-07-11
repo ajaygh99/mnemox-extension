@@ -5,7 +5,12 @@ var allTraces     = [];
 var currentFilter = 'all';
 var currentUuid   = null;
 var CACHE_KEY     = 'mnemox_traces_cache';
-var CACHE_TTL     = 60000; // 1 minute
+// Perf: 60000ms -> 3000ms (95% cut). Safe because loadTraces() ALWAYS does a
+// live GET_TRACES fetch in the background regardless of this value — TTL
+// only controls how long the instantly-painted cached list is trusted
+// before that fresh fetch's result replaces it, not whether the fetch
+// happens. A much shorter TTL just means fewer stale reads, no downside.
+var CACHE_TTL     = 3000;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

@@ -385,6 +385,34 @@ check('package.json version matches manifest.json', () => {
 });
 check('.gitignore excludes build zips',        () => readFile('.gitignore').includes('*.zip'));
 
+// -- PERF AUDIT 2026-07-11: delay/debounce tuning -----------------------------
+// Pins the exact tuned values from the perf pass so a future edit can't
+// silently drift a "safe to cut" timer back to its old slow value, or
+// accidentally cut a correctness-critical one that was deliberately left
+// alone. See the inline "Perf audit 2026-07-11" comments at each site for
+// the full reasoning.
+console.log('\n[ Perf ] Delay/debounce tuning (2026-07-11 audit)');
+check('content.js: wireObserver no-match retry cut to 50ms', () => readFile('content.js').includes('setTimeout(wireObserver, 50)'));
+check('content.js: prompt-scoring debounce cut to 50ms',     () => readFile('content.js').includes('}, 50);'));
+check('content.js: boot retry cut to 40ms',                  () => readFile('content.js').includes('setTimeout(wireObserver, 40)'));
+check('content.js: healthcheck post-load delay cut to 50ms', () => {
+  const s = readFile('content.js');
+  // lastIndexOf, not indexOf: content.js also has an earlier, unrelated
+  // 'MNEMOX_HEALTHCHECK_RESULT' listener (which contains this string as a
+  // substring) well before the window 'load' handler this check targets.
+  const idx = s.lastIndexOf("MNEMOX_HEALTHCHECK");
+  return (idx !== -1 && s.slice(idx, idx + 60).includes(', 50)')) || 'healthcheck delay not found at 50ms';
+});
+check('content.js: SPA re-wire delay cut to 60ms',           () => readFile('content.js').includes('}, 60);'));
+check('content.js: trust-score coalescing debounce (1500ms) intentionally left unchanged', () => readFile('content.js').includes('}, 1500);'));
+check('response-reader.js: streaming debounces (1000/350ms) intentionally left unchanged (Gemini has no authoritative streaming signal)', () => {
+  const s = readFile('response-reader.js');
+  return (s.includes('DEBOUNCE_STREAMING = 1000') && s.includes('DEBOUNCE_FAST      = 350')) || 'streaming debounce values drifted';
+});
+check('background.js: TRACE_COOLDOWN_MS (8000ms) intentionally left unchanged (backend dedup, not user latency)', () => readFile('background.js').includes('TRACE_COOLDOWN_MS = 8000'));
+check('traces.js: dashboard cache TTL cut to 3000ms',        () => readFile('traces.js').includes('CACHE_TTL     = 3000'));
+check('ui/coach.js: "Copied!" confirmation trimmed to 1000ms (not cut to near-zero — readability, not perf)', () => readFile('ui/coach.js').includes("'Copy Improved Prompt'; }, 1000);"));
+
 // -------------------------------------------------------------------------
 console.log('\n==============================');
 console.log(' Results: ' + passed + ' passed, ' + failed + ' failed');

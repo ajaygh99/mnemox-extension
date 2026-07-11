@@ -188,7 +188,11 @@ var MnemoxCoach = (function () {
         copyEl.onclick = function () {
           navigator.clipboard.writeText(suggestion).then(function () {
             copyEl.textContent = 'Copied!';
-            setTimeout(function () { copyEl.textContent = 'Copy Improved Prompt'; }, 2000);
+            // Perf audit 2026-07-11: intentionally NOT cut to 99% (~20ms).
+            // This isn't a performance delay — it's a human-readable
+            // confirmation duration. Trimmed 2000ms -> 1000ms, which stays
+            // comfortably readable while still feeling snappier.
+            setTimeout(function () { copyEl.textContent = 'Copy Improved Prompt'; }, 1000);
           });
         };
       }
