@@ -80,10 +80,46 @@ function openTraces() {
 document.getElementById('traces-btn').addEventListener('click', openTraces);
 document.getElementById('traces-footer-btn').addEventListener('click', openTraces);
 
-chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
-  render(res.lastResult, res.lastUrl, res.sessionCount);
-  renderTrust(res.lastTrustResult);
-});
+// Bug fixed 2026-07-11: this used to read lastResult/lastTrustResult/lastUrl
+// straight from chrome.storage.local, which are GLOBAL keys shared by every
+// tab. With multiple AI-tool tabs open (Claude, ChatGPT, Gemini...), the
+// popup showed whichever tab had most recently scored a prompt, not
+// necessarily the tab you were actually looking at when you opened the
+// popup — reported as "delays and loading issues" switching between tools.
+// Fix: ask the ACTIVE tab's content script directly for its own live state
+// (tracked in a per-tab closure variable, never shared across tabs — see
+// content.js's GET_LIVE_STATE listener). Falls back to the old
+// storage-based read only if the active tab has no content script to answer
+// (e.g. a non-AI-tool page, or a page that hasn't finished loading yet), so
+// the popup still shows something rather than going blank.
+function loadFromStorageFallback() {
+  chrome.storage.local.get(['lastResult', 'lastTrustResult', 'lastUrl', 'sessionCount'], function(res) {
+    render(res.lastResult, res.lastUrl, res.sessionCount);
+    renderTrust(res.lastTrustResult);
+  });
+}
+
+function loadLiveState() {
+  if (!chrome.tabs || !chrome.tabs.query) { loadFromStorageFallback(); return; }
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    var tab = tabs && tabs[0];
+    if (!tab || tab.id == null) { loadFromStorageFallback(); return; }
+    chrome.tabs.sendMessage(tab.id, { type: 'GET_LIVE_STATE' }, function (resp) {
+      if (chrome.runtime.lastError || !resp || !resp.ok) {
+        // No content script listening on this tab (not a matched AI
+        // platform, or the page hasn't finished loading) — fall back.
+        loadFromStorageFallback();
+        return;
+      }
+      chrome.storage.local.get(['sessionCount'], function (s) {
+        render(resp.result, resp.url, s.sessionCount);
+        renderTrust(resp.trustResult);
+      });
+    });
+  });
+}
+
+loadLiveState();
 
 // Settings toggles for the two opt-in, off-by-default flags (TRACE_LOGGING,
 // MEMORY_CONSISTENCY — see background.js FLAG_DEFAULTS). Neither had any UI

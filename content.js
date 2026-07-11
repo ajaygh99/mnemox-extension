@@ -14,6 +14,27 @@ safeChrome(function () {
   });
 });
 
+// Answers the popup's per-tab state request (see the GET_LIVE_STATE fix
+// comment further down, next to lastLiveResult/lastLiveTrustResult). This
+// listener is registered in THIS tab's content-script context, so a
+// chrome.tabs.sendMessage(tabId, ...) targeted at this specific tab reaches
+// only this listener — never another tab's content script — which is what
+// makes the per-tab isolation work.
+safeChrome(function () {
+  chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+    if (message && message.type === 'GET_LIVE_STATE') {
+      sendResponse({
+        ok:          true,
+        result:      lastLiveResult,
+        trustResult: lastLiveTrustResult,
+        url:         window.location.hostname,
+        wired:       wired,
+      });
+      return true;
+    }
+  });
+});
+
 function debounce(fn, ms) {
   var timer;
   return function () { clearTimeout(timer); timer = setTimeout(fn, ms); };
@@ -243,11 +264,28 @@ function wireObserver() {
 var trustDebounceTimer = null;
 var lastTrustPayload = null;
 
+// Bug fixed 2026-07-11: chrome.storage.local's lastResult/lastTrustResult/
+// lastUrl keys are GLOBAL — shared across every tab. With multiple AI-tool
+// tabs open at once (Claude, ChatGPT, Gemini...), scoring a prompt in ANY
+// one of them overwrote these keys for ALL of them. The toolbar popup read
+// only from storage, so it showed whichever tab had most recently scored —
+// not necessarily the tab actually being viewed. Reported by a user working
+// across Claude/ChatGPT/Gemini as "delays and loading issues" on the popup.
+// Fix: keep this tab's OWN latest result in a local closure variable (never
+// shared with other tabs) and answer a GET_LIVE_STATE request for it below,
+// so the popup can ask "what does THIS tab currently show" directly instead
+// of trusting global storage. The storage writes above/below are kept as-is
+// for backward compatibility (traces logging, session count, popup fallback
+// when a tab has no content script to answer this message).
+var lastLiveResult = null;
+var lastLiveTrustResult = null;
+
 window.addEventListener('message', function (event) {
   if (event.source !== window || !event.data) return;
 
   if (event.data.type === 'MNEMOX_RESULT') {
     console.log('[Mnemox][debug] content.js received MNEMOX_RESULT, score=' + (event.data.result && event.data.result.score) + ', saving to storage');
+    lastLiveResult = event.data.result;
     safeChrome(function () {
       chrome.storage.local.get(['sessionCount'], function (data) {
         chrome.storage.local.set({
@@ -280,6 +318,7 @@ window.addEventListener('message', function (event) {
 
   if (event.data.type === 'MNEMOX_TRUST_RESULT') {
     var tr = event.data.result;
+    lastLiveTrustResult = tr;
     safeChrome(function () {
       chrome.storage.local.get(['lastPromptText'], function (data) {
         chrome.storage.local.set({ lastTrustResult: tr, lastResponseUrl: window.location.hostname });

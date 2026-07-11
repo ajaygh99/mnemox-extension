@@ -159,6 +159,16 @@ function createPageWorld({ url = 'https://claude.ai/chat/test', backgroundBus, s
   };
 
   const createdTabs = sentTabs || [];
+  // Bug fixed 2026-07-11 (product side): content.js now registers a
+  // GET_LIVE_STATE onMessage listener so the popup can ask a specific tab
+  // for its own state instead of trusting global storage (see
+  // test/qe/12-integration-live-tab-state.test.js). This mock used to be a
+  // true no-op with a comment claiming content.js never registers a
+  // listener — that's no longer accurate, so the mock now actually stores
+  // listeners and exposes a `_trigger` helper tests can call to simulate
+  // chrome.tabs.sendMessage(tabId, ...) delivering a message into this
+  // specific tab's content-script context.
+  const onMessageListeners = [];
   window.chrome = {
     runtime: {
       getURL: (f) => 'chrome-extension://mock-id/' + f,
@@ -167,7 +177,22 @@ function createPageWorld({ url = 'https://claude.ai/chat/test', backgroundBus, s
         if (!backgroundBus) { if (cb) cb(undefined); return; }
         backgroundBus.dispatch(message).then((resp) => { if (cb) cb(resp); });
       },
-      onMessage: { addListener: () => {} }, // content.js doesn't register one; no-op is correct
+      onMessage: {
+        addListener: (fn) => { onMessageListeners.push(fn); },
+        _trigger: (message, sender) => {
+          return new Promise((resolve) => {
+            let responded = false;
+            for (const fn of onMessageListeners) {
+              const keepAlive = fn(message, sender || {}, (resp) => {
+                if (!responded) { responded = true; resolve(resp); }
+              });
+              if (responded) break;
+              if (!keepAlive) continue;
+            }
+            if (!responded) resolve(undefined);
+          });
+        },
+      },
     },
     storage: { local: storage },
     tabs: { create: (opts) => createdTabs.push(opts) },
