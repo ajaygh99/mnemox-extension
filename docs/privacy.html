@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Mnemox Extension</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 40px 24px; color: #1a1a2e; line-height: 1.65; }
+  h1 { font-size: 1.9em; margin-bottom: 0.2em; }
+  h2 { font-size: 1.25em; margin-top: 1.8em; border-bottom: 1px solid #e5e5ef; padding-bottom: 6px; }
+  .updated { color: #666; font-size: 0.95em; }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  code { background: #f2f2f7; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  a { color: #4a4ae6; }
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<p class="updated">Mnemox Extension &middot; Last updated: July 14, 2026</p>
+
+<p>By default, Mnemox does not collect, transmit, or store any personal data on external servers. All prompt and response scoring is processed entirely within your browser using local JavaScript.</p>
+
+<h2>Opt-in features</h2>
+<p>Two features are opt-in and off by default, changeable at any time from the extension popup:</p>
+<ul>
+  <li><strong>Trace Logging</strong> — sends your prompt/response text (truncated) plus your scores to the Mnemox backend so the Traces dashboard can show your history.</li>
+  <li><strong>Memory Alignment</strong> — sends AI response text to the same backend to compare it against memories you've saved.</li>
+</ul>
+<p>Neither feature is active until you turn it on.</p>
+
+<h2>Local storage</h2>
+<p>The extension uses <code>chrome.storage.local</code> to remember your last prompt score, your feature-toggle settings, and an anonymous device ID between page loads. This data stays on your device unless one of the two opt-in features above is enabled.</p>
+
+<h2>Permissions</h2>
+<ul>
+  <li><strong>storage</strong> — save your last prompt/response score, feature-flag settings, and an anonymous device ID so the popup can display them</li>
+  <li><strong>activeTab</strong> — access the current tab's text input fields</li>
+  <li><strong>tabs</strong> — open the MnemoxTrace dashboard in a new tab from the popup</li>
+  <li><strong>host_permissions</strong> (specific AI tool domains + the Mnemox backend) — required to run the scorer on supported AI chat sites, and to reach the backend only when Trace Logging or Memory Alignment is turned on</li>
+</ul>
+
+<h2>Data sharing and selling</h2>
+<p>Mnemox does not sell user data, does not share user data with third parties, and does not use user data for purposes unrelated to the extension's single purpose of prompt scoring and coaching.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy: <a href="mailto:ajjukak123@gmail.com">ajjukak123@gmail.com</a></p>
+</body>
+</html>
