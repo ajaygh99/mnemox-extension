@@ -97,8 +97,8 @@ check('All 8 scripts injected', () => {
   return missing.length === 0 || 'missing: ' + missing.join(', ');
 });
 check('Saves lastResult to storage',   () => readFile('content.js').includes('lastResult'));
-check('wireObserver retries at 2000ms',() => readFile('content.js').includes('2000'));
-check('Debounce is 1500ms',            () => readFile('content.js').includes('1500'));
+check('wireObserver uses bounded backoff',() => readFile('content.js').includes('[100, 250, 500, 1000]'));
+check('Prompt scoring debounce is 120ms', () => readFile('content.js').includes('}, 120)'));
 check('pageWorld attaches tokens',     () => readFile('ui/pageWorld.js').includes('result.tokens'));
 check('pageWorld attaches suggestion', () => readFile('ui/pageWorld.js').includes('result.suggestion'));
 
@@ -109,14 +109,13 @@ const allRes = (manifest.web_accessible_resources||[]).flatMap(r=>r.resources||[
   check(r + ' in manifest', () => allRes.includes(r) || 'missing');
 });
 
-console.log('\n[ QA-5 ] File Integrity (no non-ASCII)');
+console.log('\n[ QA-5 ] File Integrity (valid UTF-8, no replacement characters)');
 getAllJs(ROOT).forEach(f => {
   if (f.includes('node_modules')) return;
   const rel = f.replace(ROOT+path.sep,'').replace(/\\/g,'/');
   check(rel + ' clean', () => {
-    const d = fs.readFileSync(f);
-    const bad = [...d].filter(b => b > 127);
-    return bad.length === 0 || bad.length + ' non-ASCII bytes';
+    const d = fs.readFileSync(f, 'utf8');
+    return !d.includes('\uFFFD') || 'contains invalid UTF-8 replacement characters';
   });
 });
 

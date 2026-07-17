@@ -1,7 +1,7 @@
 # Mnemox - Chrome Web Store Listing
 
 ## Name
-Mnemox
+Mnemox Extension
 
 ## Short Description (up to 132 chars)
 Real-time prompt scorer and token counter. Works on any site. Zero API dependencies.
@@ -50,7 +50,7 @@ Most people type the same weak prompts and wonder why AI gives generic answers. 
 - Two optional features are off by default and must be enabled in the popup settings: Trace Logging (saves your prompt/response text to the MnemoxTrace dashboard so you can review your history) and Memory Alignment (sends AI response text to our backend to compare it against your saved memories)
 
 ## Category
-Productivity
+Tools (under the Productivity group)
 
 ## Language
 English
@@ -59,7 +59,7 @@ English
 prompt, AI, ChatGPT, scoring, token counter, prompt coach, Claude, Gemini, productivity
 
 ## Privacy Policy URL
-https://github.com/ajaygh99/mnemox-extension#privacy
+https://github.com/ajaygh99/mnemox-extension#privacy-policy
 
 ## Privacy Policy Text
 
@@ -74,5 +74,4 @@ The extension uses chrome.storage.local to remember your last prompt score and a
 - storage: Used to save the last prompt/response score, feature-flag settings, and an anonymous device UUID so the popup can display them
 - scripting: Used to inject the scoring engine into web pages
 - activeTab: Used to access the current tab's text input fields
-- tabs: Used to open the MnemoxTrace dashboard in a new tab from the popup
 - host_permissions (specific AI tool domains + the Mnemox backend): Required to run the scorer on supported AI chat sites, and to reach the backend only when an opt-in feature (Trace Logging or Memory Alignment) is turned on

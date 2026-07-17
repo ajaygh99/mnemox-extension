@@ -1,13 +1,11 @@
 {
     "manifest_version":  3,
-    "name":  "Mnemox",
-    "version":  "1.3.3",
-    "description":  "Real-time prompt scorer and token counter. Works on ChatGPT, Claude, Gemini, Copilot, Perplexity and more. Instant coaching panel with rule breakdown and improved prompt suggestions. Zero external API dependencies.",
+    "name":  "Mnemox Extension",
+    "version":  "1.4.0",
+    "description":  "Real-time prompt scorer & coaching panel for ChatGPT, Claude, Gemini, Copilot & more. Zero external API dependencies.",
     "permissions":  [
                         "storage",
-                        "scripting",
-                        "activeTab",
-                        "tabs"
+                        "activeTab"
                     ],
     "host_permissions":  [
                              "https://chatgpt.com/*",
@@ -80,6 +78,5 @@
                   "16":  "icons/icon16.png",
                   "48":  "icons/icon48.png",
                   "128":  "icons/icon128.png"
-              },
-    "homepage_url":  "https://mnemoxpro.com"
+              }
 }

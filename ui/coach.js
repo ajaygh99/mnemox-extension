@@ -4,6 +4,7 @@
 var MnemoxCoach = (function () {
   var PANEL_ID = 'mnemox-coach-panel';
   var OVERLAY_ID = 'mnemox-coach-overlay';
+  var latestResult = null;
 
   var RULE_TIPS = {
     R1: 'Add a role (e.g. "You are a senior developer...")',
@@ -284,6 +285,7 @@ var MnemoxCoach = (function () {
   function update(result) {
     inject();
     if (!result || result.empty) return;
+    latestResult = result;
 
     var scoreEl  = document.getElementById('mnemox-coach-score');
     var gradeEl  = document.getElementById('mnemox-coach-grade');
@@ -297,17 +299,21 @@ var MnemoxCoach = (function () {
     if (tokensEl && result.tokens != null) {
       tokensEl.textContent = '~' + result.tokens + ' tokens';
     }
-    if (result.dims) renderRules(result.dims, result.weak);
-    renderSuggestion(result.suggestion || null);
+    var panel = document.getElementById(PANEL_ID);
+    if (panel && panel.style.right === '0px') {
+      if (result.dims) renderRules(result.dims, result.weak);
+      renderSuggestion(result.suggestion || null);
+    }
   }
 
   function show(result) {
     inject();
-    if (result) update(result);
+    if (result) latestResult = result;
     var panel   = document.getElementById(PANEL_ID);
     var overlay = document.getElementById(OVERLAY_ID);
     if (overlay) overlay.style.display = 'block';
     if (panel)   panel.style.right = '0px';
+    if (latestResult) update(latestResult);
   }
 
   function hide() {
@@ -340,6 +346,21 @@ var MnemoxCoach = (function () {
     var cachedTrust = localStorage.getItem('__mnemox_last_trust_result');
     if (cachedTrust && typeof MnemoxCoach !== 'undefined') {
       MnemoxCoach.updateTrust(JSON.parse(cachedTrust));
+    }
+  } catch (e) {}
+})();
+
+// Restore the last PROMPT score too (same idea as ui/badge.js's own restore
+// block, and the trust-restore block above) — otherwise the coach panel's
+// Prompt Score stays stuck at "--" after a hard refresh/reopen even though
+// a real score already exists in localStorage. Bug found 2026-07-11: the
+// badge and the trust score both restore on load, but the prompt score in
+// this panel never did.
+(function () {
+  try {
+    var cachedResult = localStorage.getItem('__mnemox_last_result');
+    if (cachedResult && typeof MnemoxCoach !== 'undefined') {
+      MnemoxCoach.update(JSON.parse(cachedResult));
     }
   } catch (e) {}
 })();

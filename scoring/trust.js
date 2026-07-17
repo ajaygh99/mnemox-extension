@@ -65,10 +65,10 @@
     var r2, r2msg;
     if (trimmed.length < 30) {
       r2 = 0; r2msg = 'Response too short';
+    } else if (trimmed.endsWith('...') || trimmed.endsWith('\u2026')) {
+      r2 = 5;  r2msg = 'Response appears truncated';
     } else if (/[.!?]$/.test(trimmed) || /```$/.test(trimmed)) {
       r2 = 30; r2msg = 'Response ends cleanly';
-    } else if (trimmed.endsWith('...')) {
-      r2 = 5;  r2msg = 'Response appears truncated';
     } else if (wc > 30) {
       r2 = 20; r2msg = 'Substantial response, no closing punctuation';
     } else {

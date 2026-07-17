@@ -45,6 +45,7 @@
   var debounceTimer  = null;
   var lastText       = '';
   var lastContainer  = null;
+  var bodyScanQueued = false;
 
   function estimateTokens(text) {
     var c = Math.ceil(text.length / 4);
@@ -100,9 +101,28 @@
 
   function startBodyObserver() {
     if (bodyObserver) { bodyObserver.disconnect(); }
-    bodyObserver = new MutationObserver(function () {
-      var container = getLatestContainer();
-      if (container && container !== lastContainer) attachTargetObserver(container);
+    bodyObserver = new MutationObserver(function (mutations) {
+      for (var i = mutations.length - 1; i >= 0; i--) {
+        var nodes = mutations[i].addedNodes || [];
+        for (var j = nodes.length - 1; j >= 0; j--) {
+          var node = nodes[j];
+          if (!node || node.nodeType !== 1) continue;
+          var candidate = node.matches && node.matches(platform.sel) ? node
+            : node.querySelector ? node.querySelector(platform.sel) : null;
+          if (candidate && candidate !== lastContainer) {
+            attachTargetObserver(candidate);
+            return;
+          }
+        }
+      }
+      if (bodyScanQueued) return;
+      bodyScanQueued = true;
+      var schedule = window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); };
+      schedule(function () {
+        bodyScanQueued = false;
+        var container = getLatestContainer();
+        if (container && container !== lastContainer) attachTargetObserver(container);
+      });
     });
     bodyObserver.observe(document.body, { childList: true, subtree: true, characterData: false });
   }

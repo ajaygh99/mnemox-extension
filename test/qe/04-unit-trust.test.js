@@ -77,10 +77,15 @@ module.exports = async function run() {
       // someone reorders the branches without fixing the underlying logic,
       // and so this suite stays a trustworthy regression baseline rather
       // than silently asserting the intended-but-unreachable behavior.
-      await it('[DEFECT-1] a response truncated with "..." is misclassified as "ends cleanly" (30, not 5) because the truncation check is unreachable dead code', () => {
+      await it('a response truncated with "..." is classified as incomplete', () => {
         const r = Trust.scoreResponse('This response was cut off mid sentence and trails off like this...');
-        expect(r.signals.completeness.score).toBe(30);
-        expect(r.signals.completeness.message).toBe('Response ends cleanly');
+        expect(r.signals.completeness.score).toBe(5);
+        expect(r.signals.completeness.message).toBe('Response appears truncated');
+      });
+
+      await it('a response truncated with a unicode ellipsis is classified as incomplete', () => {
+        const r = Trust.scoreResponse('This response was cut off mid sentence and trails off like this\u2026');
+        expect(r.signals.completeness.score).toBe(5);
       });
 
       await it('a long response with no closing punctuation scores 20', () => {

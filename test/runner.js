@@ -392,7 +392,7 @@ check('.gitignore excludes build zips',        () => readFile('.gitignore').incl
 // alone. See the inline "Perf audit 2026-07-11" comments at each site for
 // the full reasoning.
 console.log('\n[ Perf ] Delay/debounce tuning (2026-07-11 audit)');
-check('content.js: wireObserver no-match retry cut to 50ms', () => readFile('content.js').includes('setTimeout(wireObserver, 50)'));
+check('content.js: wireObserver uses bounded backoff', () => readFile('content.js').includes('var delays = [100, 250, 500, 1000]'));
 check('content.js: prompt-scoring debounce set to 120ms (revised down from an initial 50ms cut after a reported real-world regression — see the "Revised 2026-07-11" comment at this site)', () => readFile('content.js').includes('}, 120);'));
 check('content.js: boot retry cut to 40ms',                  () => readFile('content.js').includes('setTimeout(wireObserver, 40)'));
 check('content.js: healthcheck post-load delay cut to 50ms', () => {

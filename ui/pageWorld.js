@@ -9,6 +9,8 @@
     return;
   }
   window.__mnemoxPageWorldReady = true;
+  var lastScoredText = null;
+  var lastScoredResult = null;
 
   window.addEventListener('message', function (event) {
     if (event.source !== window) return;
@@ -22,6 +24,12 @@
         return;
       }
 
+      var normalizedText = text.trim();
+      if (normalizedText === lastScoredText && lastScoredResult) {
+        window.postMessage({ type: 'MNEMOX_RESULT', result: lastScoredResult }, '*');
+        return;
+      }
+
       var result = scorePrompt(text);
       console.log('[Mnemox][debug] pageWorld computed score=' + result.score + ' grade=' + result.grade);
 
@@ -32,6 +40,8 @@
       if (typeof MnemoxSuggester !== 'undefined') {
         result.suggestion = MnemoxSuggester.suggest(text, result.dims);
       }
+      lastScoredText = normalizedText;
+      lastScoredResult = result;
 
       // Bug fixed 2026-07-05: MnemoxBadge.update() used to run BEFORE posting
       // MNEMOX_RESULT below. If it threw for any reason (Trusted Types was

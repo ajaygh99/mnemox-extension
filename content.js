@@ -80,6 +80,28 @@ var promptObserver = null; // track MutationObserver so we can disconnect on re-
 var bootObserver = null; // watches for the input mounting late (see startBootObserver)
 var wiredSelectorIndex = Infinity; // priority of the currently-wired selector (lower = better)
 var wireStartTime = Date.now();
+var wireRetryTimer = null;
+var wireRetryAttempt = 0;
+var wireObserverQueued = false;
+var DEBUG = false;
+
+function debugLog() {
+  if (DEBUG && typeof console !== 'undefined') console.log.apply(console, arguments);
+}
+
+function queueWireObserver() {
+  if (wireObserverQueued) return;
+  wireObserverQueued = true;
+  var schedule = window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); };
+  schedule(function () { wireObserverQueued = false; wireObserver(); });
+}
+
+function scheduleWireRetry() {
+  if (wireRetryTimer || wired || Date.now() - wireStartTime > 15000) return;
+  var delays = [100, 250, 500, 1000];
+  var delay = delays[Math.min(wireRetryAttempt++, delays.length - 1)];
+  wireRetryTimer = setTimeout(function () { wireRetryTimer = null; wireObserver(); }, delay);
+}
 
 // Ordered by platform specificity — narrow selectors first
 var INPUT_SELECTORS = [
@@ -126,8 +148,8 @@ function wireObserver() {
       // for the narrow race before bootObserver attaches, so a tight poll
       // just means we notice a few ms sooner with negligible extra cost
       // (one cheap querySelector loop).
-      console.log('[Mnemox][debug] wireObserver: no INPUT_SELECTORS matched yet, retrying in 50ms');
-      setTimeout(wireObserver, 50);
+      debugLog('[Mnemox][debug] wireObserver: no input matched; bounded retry scheduled');
+      scheduleWireRetry();
     }
     return;
   }
@@ -160,6 +182,8 @@ function wireObserver() {
   console.log('[Mnemox][debug] wireObserver: matched selector', matchedSelector);
 
   wired = true;
+  wireRetryAttempt = 0;
+  if (wireRetryTimer) { clearTimeout(wireRetryTimer); wireRetryTimer = null; }
   wiredSelectorIndex = matchedIndex;
   window.__mnemoxWiredTarget = target;
   // Bug fixed 2026-07-05: on heavier SPAs (Gemini/Angular) the input can
@@ -188,12 +212,13 @@ function wireObserver() {
   }
 
   // Save prompt text eagerly (every keystroke) — no debounce
-  function saveText() {
+  function saveTextNow() {
     var text = getText();
     if (text.length > 1) {
       safeChrome(function () { chrome.storage.local.set({ lastPromptText: text }); });
     }
   }
+  var debouncedSaveText = debounce(saveTextNow, 400);
 
   // Score prompt 120ms after typing stops (was 500ms — 76% cut).
   // Revised 2026-07-11: an earlier pass here cut this all the way to 50ms.
@@ -219,10 +244,9 @@ function wireObserver() {
     window.postMessage({ type: 'MNEMOX_SCORE', text: text }, '*');
   }, 120);
 
-  function onInput() { saveText(); debouncedScore(); }
+  function onInput() { debouncedSaveText(); debouncedScore(); }
 
   target.addEventListener('input',  onInput);
-  target.addEventListener('keyup',  onInput);
   // keydown: score immediately on Enter instead of waiting for the debounce.
   // Bug fixed 2026-07-05: for short prompts sent quickly, the 500ms debounce
   // timer was still pending when the platform cleared the input on submit —
@@ -366,7 +390,7 @@ bootObserver = new MutationObserver(function () {
   // decision of when it's safe to stop (see its RISKY_SELECTOR_INDEX / 15s
   // logic), so just keep calling it here; it no-ops once nothing better is
   // available or bootObserver has already been torn down.
-  wireObserver();
+  queueWireObserver();
 });
 // attributes:true added 2026-07-05 — childList alone only catches NEW nodes
 // appearing. Some SPAs render the input div early but only add
@@ -401,7 +425,7 @@ window.addEventListener('load', function () {
     // tore it down — the new page's editor needs the same late-mount /
     // decoy-upgrade protection wireObserver() provides.
     if (!bootObserver) {
-      bootObserver = new MutationObserver(function () { wireObserver(); });
+      bootObserver = new MutationObserver(function () { queueWireObserver(); });
       bootObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['contenteditable', 'role', 'aria-label', 'data-placeholder', 'class'] });
     }
     clearTimeout(trustDebounceTimer); // cancel any pending trust score

@@ -78,7 +78,7 @@ module.exports = async function run() {
       expect(coachGrade.textContent).toBe('Grade ' + msg.result.grade);
     });
 
-    await it('coach panel rule-breakdown shows all 8 rules with a progress bar each', async () => {
+    await it('coach defers rule rendering while hidden, then shows all 8 rules when opened', async () => {
       const { window } = createPageWorld({ storage: createStorage() });
       loadPageWorldScripts(window);
 
@@ -87,6 +87,9 @@ module.exports = async function run() {
       await resultPromise;
 
       const rulesEl = window.document.getElementById('mnemox-coach-rules');
+      expect(rulesEl.children.length).toBe(0);
+      const badge = window.document.getElementById('mnemox-score-badge');
+      badge.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
       expect(rulesEl.children.length).toBe(8);
     });
 

@@ -250,7 +250,14 @@ chrome.runtime.onInstalled.addListener(function() {
 
 // Warm up Railway backend on service-worker start to reduce cold-start delay
 function warmupBackend() {
-  fetch(API_BASE + '/health').catch(function() { /* silent — just waking the server */ });
+  getAllFlags(function(flags) {
+    if (!flags.TRACE_LOGGING && !flags.MEMORY_CONSISTENCY) return;
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, 3000) : null;
+    fetch(API_BASE + '/health', controller ? { signal: controller.signal } : undefined)
+      .catch(function() { /* silent - optional warmup only */ })
+      .then(function() { if (timer) clearTimeout(timer); });
+  });
 }
 warmupBackend();
 chrome.runtime.onStartup.addListener(warmupBackend);
