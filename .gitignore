@@ -2,3 +2,25 @@ node_modules/
 mnemox-extension/
 *.map
 *.zip
+
+# Build artifacts
+mnemox-extension-v*.zip
+mnemox-v*.zip
+
+# Temporary working branches
+Codexcowork/
+
+# Store/metadata files
+store_assets/
+app_screenshots/
+website/
+manifest.json.bak
+fix-manifest-name.ps1
+
+# Session logs
+SESSION_LOG_*.md
+CHROME_STORE_LAUNCH_PLAN.md
+STEP7_SUBMIT_GUIDE.md
+
+# Temp files
+zim4iWlX
